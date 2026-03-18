@@ -1,0 +1,87 @@
+package provider
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"sort"
+	"testing"
+)
+
+// stubProvider is a minimal Provider implementation for testing.
+type stubProvider struct {
+	name string
+}
+
+func (s *stubProvider) Name() string                          { return s.name }
+func (s *stubProvider) SupportsOperation(op Operation) bool   { return true }
+func (s *stubProvider) ChatCompletion(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+	return nil, nil
+}
+func (s *stubProvider) ChatCompletionStream(ctx context.Context, req *ChatRequest) (Stream, error) {
+	return nil, nil
+}
+func (s *stubProvider) Passthrough(ctx context.Context, method, path string, body io.Reader, headers http.Header) (*http.Response, error) {
+	return nil, nil
+}
+
+func TestRegistryRegisterAndGet(t *testing.T) {
+	reg := NewRegistry()
+	reg.Register(&stubProvider{name: "openai"})
+	reg.Register(&stubProvider{name: "anthropic"})
+
+	p, err := reg.Get("openai")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Name() != "openai" {
+		t.Errorf("expected openai, got %s", p.Name())
+	}
+
+	p, err = reg.Get("anthropic")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Name() != "anthropic" {
+		t.Errorf("expected anthropic, got %s", p.Name())
+	}
+}
+
+func TestRegistryGetNotFound(t *testing.T) {
+	reg := NewRegistry()
+	_, err := reg.Get("nonexistent")
+	if err == nil {
+		t.Fatal("expected error for missing provider")
+	}
+}
+
+func TestRegistryList(t *testing.T) {
+	reg := NewRegistry()
+	reg.Register(&stubProvider{name: "openai"})
+	reg.Register(&stubProvider{name: "anthropic"})
+	reg.Register(&stubProvider{name: "openrouter"})
+
+	names := reg.List()
+	sort.Strings(names)
+
+	expected := []string{"anthropic", "openai", "openrouter"}
+	if len(names) != len(expected) {
+		t.Fatalf("expected %d providers, got %d", len(expected), len(names))
+	}
+	for i, name := range names {
+		if name != expected[i] {
+			t.Errorf("expected %s at index %d, got %s", expected[i], i, name)
+		}
+	}
+}
+
+func TestRegistryOverwrite(t *testing.T) {
+	reg := NewRegistry()
+	reg.Register(&stubProvider{name: "openai"})
+	reg.Register(&stubProvider{name: "openai"}) // overwrite
+
+	names := reg.List()
+	if len(names) != 1 {
+		t.Errorf("expected 1 provider after overwrite, got %d", len(names))
+	}
+}

@@ -1,0 +1,116 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
+
+type Config struct {
+	Server    ServerConfig              `yaml:"server"`
+	Providers map[string]ProviderConfig `yaml:"providers"`
+	Routing   RoutingConfig             `yaml:"routing"`
+}
+
+type ServerConfig struct {
+	Address      string        `yaml:"address"`
+	ReadTimeout  time.Duration `yaml:"read_timeout"`
+	WriteTimeout time.Duration `yaml:"write_timeout"`
+}
+
+type ProviderConfig struct {
+	BaseURL string      `yaml:"base_url"`
+	Keys    []KeyConfig `yaml:"keys"`
+}
+
+type KeyConfig struct {
+	Key    string   `yaml:"key"`
+	Weight int      `yaml:"weight"`
+	Models []string `yaml:"models,omitempty"`
+}
+
+type RoutingConfig struct {
+	DefaultProvider string                 `yaml:"default_provider"`
+	Models          map[string]ModelRoute  `yaml:"models,omitempty"`
+	Failover        FailoverConfig         `yaml:"failover"`
+}
+
+type ModelRoute struct {
+	Providers []string `yaml:"providers"`
+	Strategy  string   `yaml:"strategy"` // priority | round-robin | weighted
+}
+
+type FailoverConfig struct {
+	Enabled    bool          `yaml:"enabled"`
+	MaxRetries int           `yaml:"max_retries"`
+	Backoff    BackoffConfig `yaml:"backoff"`
+	RetryOn    []int         `yaml:"retry_on"`
+}
+
+type BackoffConfig struct {
+	Initial    time.Duration `yaml:"initial"`
+	Multiplier float64       `yaml:"multiplier"`
+	Max        time.Duration `yaml:"max"`
+}
+
+var envVarRegex = regexp.MustCompile(`\$\{([^}]+)\}`)
+
+func Load(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading config file: %w", err)
+	}
+
+	// Substitute environment variables
+	expanded := envVarRegex.ReplaceAllStringFunc(string(data), func(match string) string {
+		varName := strings.TrimSuffix(strings.TrimPrefix(match, "${"), "}")
+		if val, ok := os.LookupEnv(varName); ok {
+			return val
+		}
+		return match
+	})
+
+	cfg := &Config{}
+	if err := yaml.Unmarshal([]byte(expanded), cfg); err != nil {
+		return nil, fmt.Errorf("parsing config: %w", err)
+	}
+
+	applyDefaults(cfg)
+	return cfg, nil
+}
+
+func applyDefaults(cfg *Config) {
+	if cfg.Server.Address == "" {
+		cfg.Server.Address = ":8080"
+	}
+	if cfg.Server.ReadTimeout == 0 {
+		cfg.Server.ReadTimeout = 30 * time.Second
+	}
+	if cfg.Server.WriteTimeout == 0 {
+		cfg.Server.WriteTimeout = 120 * time.Second
+	}
+	if cfg.Routing.Failover.MaxRetries == 0 {
+		cfg.Routing.Failover.MaxRetries = 3
+	}
+	if cfg.Routing.Failover.Backoff.Initial == 0 {
+		cfg.Routing.Failover.Backoff.Initial = 100 * time.Millisecond
+	}
+	if cfg.Routing.Failover.Backoff.Multiplier == 0 {
+		cfg.Routing.Failover.Backoff.Multiplier = 2.0
+	}
+	if cfg.Routing.Failover.Backoff.Max == 0 {
+		cfg.Routing.Failover.Backoff.Max = 5 * time.Second
+	}
+	for name, p := range cfg.Providers {
+		for i := range p.Keys {
+			if p.Keys[i].Weight == 0 {
+				p.Keys[i].Weight = 1
+			}
+		}
+		cfg.Providers[name] = p
+	}
+}

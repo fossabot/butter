@@ -1,0 +1,17 @@
+# Binaries
+/butter.exe
+
+# Design docs
+design/
+
+# Config with secrets
+config.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+.claude

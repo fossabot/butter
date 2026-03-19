@@ -70,7 +70,7 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "ok")
+	_, _ = fmt.Fprint(w, "ok")
 }
 
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +79,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "failed to read request body")
 		return
 	}
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	// Check if this is a streaming request by inspecting the raw body.
 	if isStreamRequest(body) {
@@ -107,7 +107,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	w.Write(resp.RawBody)
+	_, _ = w.Write(resp.RawBody)
 }
 
 func (s *Server) handleStream(w http.ResponseWriter, r *http.Request, body []byte) {
@@ -128,7 +128,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request, body []byt
 		s.writeError(w, status, err.Error())
 		return
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -141,7 +141,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request, body []byt
 		if err != nil {
 			if err == io.EOF {
 				// Send the final [DONE] marker.
-				fmt.Fprint(w, "data: [DONE]\n\n")
+				_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 				flusher.Flush()
 				return
 			}
@@ -150,7 +150,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request, body []byt
 		}
 
 		// Write the SSE chunk and flush immediately.
-		fmt.Fprintf(w, "%s\n\n", chunk)
+		_, _ = fmt.Fprintf(w, "%s\n\n", chunk)
 		flusher.Flush()
 	}
 }
@@ -158,7 +158,7 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request, body []byt
 func (s *Server) writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	fmt.Fprintf(w, `{"error":{"message":%q,"type":"proxy_error"}}`, msg)
+	_, _ = fmt.Fprintf(w, `{"error":{"message":%q,"type":"proxy_error"}}`, msg)
 }
 
 // isStreamRequest checks if the request body contains "stream": true.

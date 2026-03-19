@@ -203,7 +203,7 @@ func TestDispatchStreamDefaultProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	chunk, err := stream.Next()
 	if err != nil {
@@ -246,7 +246,7 @@ func TestDispatchStreamModelRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	chunk, err := stream.Next()
 	if err != nil {
@@ -575,7 +575,7 @@ func TestFailoverStreamRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	chunk, err := stream.Next()
 	if err != nil {

@@ -63,7 +63,7 @@ func TestChatCompletionNonStreaming(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{
+		_, _ = fmt.Fprint(w, `{
 			"id": "chatcmpl-test123",
 			"object": "chat.completion",
 			"model": "gpt-4o-mini",
@@ -85,7 +85,7 @@ func TestChatCompletionNonStreaming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -122,7 +122,7 @@ func TestChatCompletionStreaming(t *testing.T) {
 		}
 
 		for _, chunk := range chunks {
-			fmt.Fprintf(w, "%s\n\n", chunk)
+			_, _ = fmt.Fprintf(w, "%s\n\n", chunk)
 			flusher.Flush()
 		}
 	}))
@@ -136,7 +136,7 @@ func TestChatCompletionStreaming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -172,7 +172,7 @@ func TestHealthz(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected 200, got %d", resp.StatusCode)
@@ -191,7 +191,7 @@ func TestMissingModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadGateway {
 		t.Errorf("expected 502, got %d", resp.StatusCode)
@@ -202,7 +202,7 @@ func TestProviderError502(t *testing.T) {
 	mockProv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(500)
-		fmt.Fprint(w, `{"error":"internal"}`)
+		_, _ = fmt.Fprint(w, `{"error":"internal"}`)
 	}))
 	defer mockProv.Close()
 
@@ -214,7 +214,7 @@ func TestProviderError502(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Non-streaming: provider 500 is relayed as-is (not wrapped in 502).
 	if resp.StatusCode != 500 {
@@ -226,7 +226,7 @@ func TestStreamDispatchError(t *testing.T) {
 	// Provider that returns 500 for streaming requests.
 	mockProv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
-		fmt.Fprint(w, `{"error":"stream fail"}`)
+		_, _ = fmt.Fprint(w, `{"error":"stream fail"}`)
 	}))
 	defer mockProv.Close()
 
@@ -238,7 +238,7 @@ func TestStreamDispatchError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// The upstream returned 500, which is forwarded as the status code via ProviderError.
 	if resp.StatusCode != 500 {
@@ -269,7 +269,7 @@ func TestInvalidJSONBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadGateway {
 		t.Errorf("expected 502, got %d", resp.StatusCode)
@@ -287,7 +287,7 @@ func TestEmptyBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadGateway {
 		t.Errorf("expected 502, got %d", resp.StatusCode)
@@ -305,7 +305,7 @@ func TestWrongHTTPMethod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("expected 405, got %d", resp.StatusCode)
@@ -317,7 +317,7 @@ func TestProviderNon200Relayed(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Custom-Header", "preserved")
 		w.WriteHeader(429)
-		fmt.Fprint(w, `{"error":"rate limited"}`)
+		_, _ = fmt.Fprint(w, `{"error":"rate limited"}`)
 	}))
 	defer mockProv.Close()
 
@@ -329,7 +329,7 @@ func TestProviderNon200Relayed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 429 {
 		t.Errorf("expected 429, got %d", resp.StatusCode)
@@ -352,7 +352,7 @@ func TestProviderNon200Relayed(t *testing.T) {
 func TestConcurrentRequests(t *testing.T) {
 	mockProv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"id":"ok"}`)
+		_, _ = fmt.Fprint(w, `{"id":"ok"}`)
 	}))
 	defer mockProv.Close()
 
@@ -370,8 +370,8 @@ func TestConcurrentRequests(t *testing.T) {
 				errs <- err
 				return
 			}
-			defer resp.Body.Close()
-			io.ReadAll(resp.Body)
+			defer func() { _ = resp.Body.Close() }()
+			_, _ = io.ReadAll(resp.Body)
 			if resp.StatusCode != 200 {
 				errs <- fmt.Errorf("expected 200, got %d", resp.StatusCode)
 				return

@@ -110,7 +110,7 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			reg.Get("base")
+			_, _ = reg.Get("base")
 		}()
 	}
 

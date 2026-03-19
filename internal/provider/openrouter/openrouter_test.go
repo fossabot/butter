@@ -60,7 +60,7 @@ func TestChatCompletion(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprint(w, `{"id":"resp-1"}`)
+		_, _ = fmt.Fprint(w, `{"id":"resp-1"}`)
 	}))
 	defer server.Close()
 
@@ -87,11 +87,11 @@ func TestChatCompletionStream(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(200)
 
-		fmt.Fprint(w, "data: {\"chunk\":1}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"chunk\":1}\n\n")
 		flusher.Flush()
-		fmt.Fprint(w, "data: {\"chunk\":2}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"chunk\":2}\n\n")
 		flusher.Flush()
-		fmt.Fprint(w, "data: [DONE]\n\n")
+		_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 		flusher.Flush()
 	}))
 	defer server.Close()
@@ -106,7 +106,7 @@ func TestChatCompletionStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	chunk1, err := stream.Next()
 	if err != nil {
@@ -133,7 +133,7 @@ func TestChatCompletionStream(t *testing.T) {
 func TestChatCompletionStreamError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(429)
-		fmt.Fprint(w, `{"error":"rate limited"}`)
+		_, _ = fmt.Fprint(w, `{"error":"rate limited"}`)
 	}))
 	defer server.Close()
 
@@ -165,7 +165,7 @@ func TestPassthrough(t *testing.T) {
 		if r.Header.Get("X-Custom") != "value" {
 			t.Errorf("expected X-Custom header")
 		}
-		fmt.Fprint(w, `{"data":[]}`)
+		_, _ = fmt.Fprint(w, `{"data":[]}`)
 	}))
 	defer server.Close()
 
@@ -175,7 +175,7 @@ func TestPassthrough(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 	if string(body) != `{"data":[]}` {
@@ -200,7 +200,7 @@ func TestChatCompletionNon200(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(500)
-		fmt.Fprint(w, `{"error":"internal server error"}`)
+		_, _ = fmt.Fprint(w, `{"error":"internal server error"}`)
 	}))
 	defer server.Close()
 
@@ -232,15 +232,15 @@ func TestStreamMalformedSSE(t *testing.T) {
 		w.WriteHeader(200)
 
 		// Comment line (starts with colon)
-		fmt.Fprint(w, ": this is a comment\n\n")
+		_, _ = fmt.Fprint(w, ": this is a comment\n\n")
 		flusher.Flush()
 		// Event line
-		fmt.Fprint(w, "event: message\n\n")
+		_, _ = fmt.Fprint(w, "event: message\n\n")
 		flusher.Flush()
 		// Normal data
-		fmt.Fprint(w, "data: {\"chunk\":1}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"chunk\":1}\n\n")
 		flusher.Flush()
-		fmt.Fprint(w, "data: [DONE]\n\n")
+		_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 		flusher.Flush()
 	}))
 	defer server.Close()
@@ -255,7 +255,7 @@ func TestStreamMalformedSSE(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Should get the comment line (contains ":"), then event line, then data chunk.
 	chunk1, err := stream.Next()
@@ -315,7 +315,7 @@ func TestBuildRequestNoAPIKey(t *testing.T) {
 			t.Errorf("expected no Authorization header, got %s", auth)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"id":"resp-1"}`)
+		_, _ = fmt.Fprint(w, `{"id":"resp-1"}`)
 	}))
 	defer server.Close()
 
@@ -339,7 +339,7 @@ func TestBaseURLTrailingSlash(t *testing.T) {
 			t.Errorf("expected /chat/completions, got %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"id":"resp-1"}`)
+		_, _ = fmt.Fprint(w, `{"id":"resp-1"}`)
 	}))
 	defer server.Close()
 

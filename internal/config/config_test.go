@@ -7,10 +7,18 @@ import (
 	"time"
 )
 
-func TestLoadValidConfig(t *testing.T) {
+func writeTestConfig(t *testing.T, content string) string {
+	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+	return path
+}
+
+func TestLoadValidConfig(t *testing.T) {
+	path := writeTestConfig(t, `
 server:
   address: ":9090"
   read_timeout: 10s
@@ -29,7 +37,7 @@ routing:
     enabled: true
     max_retries: 5
     retry_on: [429, 500]
-`), 0644)
+`)
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -64,9 +72,7 @@ routing:
 func TestEnvVarSubstitution(t *testing.T) {
 	t.Setenv("BUTTER_TEST_KEY", "sk-from-env")
 
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`
+	path := writeTestConfig(t, `
 providers:
   openrouter:
     base_url: https://openrouter.ai/api/v1
@@ -74,7 +80,7 @@ providers:
       - key: "${BUTTER_TEST_KEY}"
 routing:
   default_provider: openrouter
-`), 0644)
+`)
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -87,9 +93,7 @@ routing:
 }
 
 func TestUnsetEnvVarPreserved(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`
+	path := writeTestConfig(t, `
 providers:
   openrouter:
     base_url: https://openrouter.ai/api/v1
@@ -97,7 +101,7 @@ providers:
       - key: "${THIS_VAR_DOES_NOT_EXIST}"
 routing:
   default_provider: openrouter
-`), 0644)
+`)
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -110,9 +114,7 @@ routing:
 }
 
 func TestDefaults(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`
+	path := writeTestConfig(t, `
 providers:
   openrouter:
     base_url: https://openrouter.ai/api/v1
@@ -120,7 +122,7 @@ providers:
       - key: "sk-test"
 routing:
   default_provider: openrouter
-`), 0644)
+`)
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -152,9 +154,7 @@ func TestLoadMissingFile(t *testing.T) {
 }
 
 func TestLoadInvalidYAML(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`{{invalid yaml`), 0644)
+	path := writeTestConfig(t, `{{invalid yaml`)
 
 	_, err := Load(path)
 	if err == nil {
@@ -163,20 +163,18 @@ func TestLoadInvalidYAML(t *testing.T) {
 }
 
 func TestLoadEmptyProviders(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`
+	path := writeTestConfig(t, `
 server:
   address: ":9090"
 routing:
   default_provider: ""
-`), 0644)
+`)
 
 	cfg, err := Load(path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.Providers != nil && len(cfg.Providers) != 0 {
+	if len(cfg.Providers) != 0 {
 		t.Errorf("expected empty providers, got %d", len(cfg.Providers))
 	}
 }
@@ -186,9 +184,7 @@ func TestMultipleEnvVars(t *testing.T) {
 	t.Setenv("BUTTER_KEY_2", "sk-second")
 	t.Setenv("BUTTER_URL", "https://custom.api/v1")
 
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`
+	path := writeTestConfig(t, `
 providers:
   openrouter:
     base_url: "${BUTTER_URL}"
@@ -197,7 +193,7 @@ providers:
       - key: "${BUTTER_KEY_2}"
 routing:
   default_provider: openrouter
-`), 0644)
+`)
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -220,9 +216,7 @@ routing:
 }
 
 func TestMultipleProvidersAndRoutes(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`
+	path := writeTestConfig(t, `
 providers:
   openrouter:
     base_url: https://openrouter.ai/api/v1
@@ -245,7 +239,7 @@ routing:
     claude-3-opus:
       providers: [anthropic, openrouter]
       strategy: priority
-`), 0644)
+`)
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -269,9 +263,7 @@ routing:
 }
 
 func TestKeyWeightDefaults(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`
+	path := writeTestConfig(t, `
 providers:
   openrouter:
     base_url: https://openrouter.ai/api/v1
@@ -282,7 +274,7 @@ providers:
         weight: 5
 routing:
   default_provider: openrouter
-`), 0644)
+`)
 
 	cfg, err := Load(path)
 	if err != nil {

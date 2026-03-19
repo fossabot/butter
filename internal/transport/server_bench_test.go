@@ -50,7 +50,7 @@ func setupBenchServer(b *testing.B, mockProviderURL string) *httptest.Server {
 func BenchmarkNonStreamingRequest(b *testing.B) {
 	mockProv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"id":"bench","choices":[{"message":{"content":"hi"}}]}`)
+		_, _ = fmt.Fprint(w, `{"id":"bench","choices":[{"message":{"content":"hi"}}]}`)
 	}))
 	defer mockProv.Close()
 
@@ -66,8 +66,8 @@ func BenchmarkNonStreamingRequest(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_, _ = io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
 	}
 }
 
@@ -76,11 +76,11 @@ func BenchmarkStreamingRequest(b *testing.B) {
 		flusher := w.(http.Flusher)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(200)
-		fmt.Fprint(w, "data: {\"chunk\":1}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"chunk\":1}\n\n")
 		flusher.Flush()
-		fmt.Fprint(w, "data: {\"chunk\":2}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"chunk\":2}\n\n")
 		flusher.Flush()
-		fmt.Fprint(w, "data: [DONE]\n\n")
+		_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 		flusher.Flush()
 	}))
 	defer mockProv.Close()
@@ -97,8 +97,8 @@ func BenchmarkStreamingRequest(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_, _ = io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
 	}
 }
 

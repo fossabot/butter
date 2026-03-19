@@ -79,7 +79,7 @@ func BenchmarkDispatchStream(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
-		stream.Close()
+		_ = stream.Close()
 	}
 }
 

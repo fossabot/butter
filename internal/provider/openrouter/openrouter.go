@@ -62,7 +62,7 @@ func (p *Provider) ChatCompletion(ctx context.Context, req *provider.ChatRequest
 	if err != nil {
 		return nil, fmt.Errorf("openrouter request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -96,7 +96,7 @@ func (p *Provider) ChatCompletionStream(ctx context.Context, req *provider.ChatR
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, &provider.ProviderError{
 			StatusCode: resp.StatusCode,
 			Message:    string(body),

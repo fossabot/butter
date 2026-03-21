@@ -1,5 +1,5 @@
-# Binaries
-/butter.exe
+# Build output
+pkg/
 
 # Design docs
 design/

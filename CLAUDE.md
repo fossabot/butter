@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 go build ./...                        # Build all packages
-go build -o butter ./cmd/butter/      # Build binary
+go build -o pkg/bin/butter ./cmd/butter/  # Build binary
 go run ./cmd/butter/ -config config.yaml  # Run from source
 go test ./... -v -race -count=1       # Run all tests (matches CI)
 go test ./internal/proxy/ -run TestDispatch -v  # Run a single test

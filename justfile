@@ -3,7 +3,7 @@ default: build
 
 # Build the binary
 build:
-    go build -o butter ./cmd/butter/
+    go build -o pkg/bin/butter ./cmd/butter/
 
 # Run from source with config (default: config.example.yaml)
 serve config="config.example.yaml":
@@ -57,4 +57,4 @@ bench:
 
 # Remove built binary
 clean:
-    rm -f butter
+    rm -rf pkg/

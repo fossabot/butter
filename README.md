@@ -55,7 +55,7 @@ Your App ──▶ Butter ──▶ OpenAI / OpenRouter / ...
 ```bash
 git clone https://github.com/temikus/butter.git
 cd butter
-go build -o butter ./cmd/butter/
+go build -o pkg/bin/butter ./cmd/butter/
 ```
 
 ### 2. Configure
@@ -119,7 +119,7 @@ routing:
 ### 3. Run
 
 ```bash
-./butter -config config.yaml
+./pkg/bin/butter -config config.yaml
 ```
 
 You should see:

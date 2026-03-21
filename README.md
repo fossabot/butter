@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Butter logo" width="200">
+  <img src="assets/logo.jpg" alt="Butter logo" width="200">
 </p>
 
 <p align="center">
-  <img src="assets/meme.png" alt="Butter comic" width="1024">
+  <img src="assets/comic.jpg" alt="Butter comic" width="1024">
 </p>
 
 <p align="center">

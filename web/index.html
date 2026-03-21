@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Butter — A Blazingly Fast AI Proxy Gateway</title>
+  <meta name="description" content="Butter is a high-performance AI proxy gateway written in Go. Unified OpenAI-compatible API, multi-provider routing, streaming support, and sub-50μs overhead.">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Butter — A Blazingly Fast AI Proxy Gateway">
+  <meta property="og:description" content="High-performance AI proxy gateway written in Go. Unified OpenAI-compatible API with multi-provider routing and sub-50μs overhead.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://temikus.github.io/butter/">
+  <meta property="og:image" content="https://temikus.github.io/butter/logo.jpg">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Butter — AI Proxy Gateway">
+  <meta name="twitter:description" content="High-performance AI proxy gateway written in Go with sub-50μs overhead.">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="logo.jpg" type="image/png">
+
+  <!-- Prism.js for syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-solarizedlight.min.css">
+</head>
+<body>
+
+  <!-- ============ Nav ============ -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand">
+        <img src="logo_no_text.png" alt="Butter logo">
+        Butter
+      </a>
+      <button class="nav-toggle" aria-label="Toggle navigation" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#quickstart">Quick Start</a></li>
+        <li><a href="#sdk">SDK Examples</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#performance">Performance</a></li>
+        <li>
+          <a href="https://github.com/temikus/butter" class="github-link" target="_blank" rel="noopener">
+            <svg width="20" height="20" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            GitHub
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ============ Hero ============ -->
+  <section class="hero">
+    <img src="logo_no_text.png" alt="Butter logo" class="hero-logo">
+    <h1>A <span class="accent">blazingly fast</span> AI proxy gateway</h1>
+    <p class="subtitle">
+      Butter sits between your application and AI providers, offering a unified OpenAI-compatible API
+      with multi-provider routing, automatic failover, and sub-50μs overhead. Written in Go with a single dependency.
+    </p>
+    <div class="hero-buttons">
+      <a href="https://github.com/temikus/butter" class="btn btn-primary" target="_blank" rel="noopener">
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        View on GitHub
+      </a>
+      <a href="#quickstart" class="btn btn-secondary">Quick Start</a>
+    </div>
+  </section>
+
+  <!-- ============ Features ============ -->
+  <div class="section-alt">
+    <section class="section" id="features">
+      <h2 class="section-title">Features</h2>
+      <p class="section-subtitle">Everything you need to route AI traffic with confidence.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <span class="icon">&#9889;</span>
+          <h3>OpenAI-Compatible API</h3>
+          <p>Drop-in replacement for any OpenAI SDK client. Just change the base URL.</p>
+        </div>
+        <div class="feature-card">
+          <span class="icon">&#127919;</span>
+          <h3>Multi-Provider Routing</h3>
+          <p>Route models to specific providers with priority or round-robin strategies.</p>
+        </div>
+        <div class="feature-card">
+          <span class="icon">&#128259;</span>
+          <h3>Streaming &amp; SSE</h3>
+          <p>Full streaming support with immediate per-chunk flush via SSE relay.</p>
+        </div>
+        <div class="feature-card">
+          <span class="icon">&#128737;&#65039;</span>
+          <h3>Automatic Failover</h3>
+          <p>Configurable retry-on status codes with exponential backoff across providers.</p>
+        </div>
+        <div class="feature-card">
+          <span class="icon">&#128273;</span>
+          <h3>Key Rotation</h3>
+          <p>Weighted random key selection with per-key model allowlists.</p>
+        </div>
+        <div class="feature-card">
+          <span class="icon">&#128220;</span>
+          <h3>YAML Config</h3>
+          <p>Simple YAML configuration with environment variable substitution.</p>
+        </div>
+
+        <!-- Coming soon -->
+        <div class="feature-card coming-soon">
+          <span class="coming-soon-badge">Coming Soon</span>
+          <h3>WASM Plugin System</h3>
+          <p>Built-in Go plugins plus sandboxed WASM plugins via Extism for custom logic.</p>
+        </div>
+        <div class="feature-card coming-soon">
+          <span class="coming-soon-badge">Coming Soon</span>
+          <h3>Response Caching</h3>
+          <p>In-memory LRU and Redis caching to reduce costs and latency.</p>
+        </div>
+        <div class="feature-card coming-soon">
+          <span class="coming-soon-badge">Coming Soon</span>
+          <h3>Observability</h3>
+          <p>OpenTelemetry tracing and Prometheus metrics for production monitoring.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ Quick Start ============ -->
+  <section class="section" id="quickstart">
+    <h2 class="section-title">Quick Start</h2>
+    <p class="section-subtitle">Up and running in under a minute.</p>
+
+    <div class="steps">
+      <div class="step">
+        <h3>Clone and build</h3>
+        <pre><code class="language-bash">git clone https://github.com/temikus/butter.git
+cd butter
+go build -o pkg/bin/butter ./cmd/butter/</code></pre>
+      </div>
+
+      <div class="step">
+        <h3>Configure</h3>
+        <pre><code class="language-bash">cp config.example.yaml config.yaml
+export OPENAI_API_KEY="sk-..."
+export OPENROUTER_API_KEY="sk-or-v1-..."</code></pre>
+      </div>
+
+      <div class="step">
+        <h3>Run</h3>
+        <pre><code class="language-bash">./pkg/bin/butter -config config.yaml
+# {"level":"INFO","msg":"butter listening","address":":8080"}</code></pre>
+      </div>
+
+      <div class="step">
+        <h3>Send a request</h3>
+        <pre><code class="language-bash">curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "openai/gpt-4o-mini",
+    "messages": [{"role": "user", "content": "Say hello!"}]
+  }'</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SDK Examples ============ -->
+  <div class="section-alt">
+    <section class="section" id="sdk">
+      <h2 class="section-title">Drop-in SDK Replacement</h2>
+      <p class="section-subtitle">Works with any OpenAI-compatible client. Just change the base URL.</p>
+
+      <div class="step">
+        <h3>Python</h3>
+        <pre><code class="language-python">from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="unused",  # Butter uses its own configured keys
+)
+
+response = client.chat.completions.create(
+    model="openai/gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)</code></pre>
+      </div>
+
+      <div class="step" style="margin-top: 32px;">
+        <h3>Node.js</h3>
+        <pre><code class="language-javascript">import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "http://localhost:8080/v1",
+  apiKey: "unused",
+});
+
+const completion = await client.chat.completions.create({
+  model: "openai/gpt-4o-mini",
+  messages: [{ role: "user", content: "Hello!" }],
+});
+console.log(completion.choices[0].message.content);</code></pre>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ Architecture ============ -->
+  <section class="section" id="architecture">
+    <h2 class="section-title">Architecture</h2>
+    <p class="section-subtitle">Minimal layers, maximum throughput.</p>
+
+    <div class="architecture-diagram">Your App ──▶ <span class="highlight">Butter</span> ──▶ OpenAI / OpenRouter / ...
+                │
+                ├── Unified OpenAI-compatible API
+                ├── Automatic failover &amp; retries
+                ├── Weighted key rotation
+                └── Plugin hooks (Go + WASM)
+
+<span class="highlight">Request Flow:</span>
+
+Client → transport.Server (HTTP)
+       → proxy.Engine (routing/dispatch)
+       → provider.Registry
+       → Provider impl
+       → upstream API</div>
+  </section>
+
+  <!-- ============ Performance ============ -->
+  <div class="section-alt">
+    <section class="section" id="performance">
+      <h2 class="section-title">Performance Targets</h2>
+      <p class="section-subtitle">Engineered for negligible overhead.</p>
+
+      <table class="perf-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Target</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Per-request overhead (no plugins)</td>
+            <td class="target">&lt;50μs</td>
+          </tr>
+          <tr>
+            <td>Per-request overhead (built-in plugins)</td>
+            <td class="target">&lt;100μs</td>
+          </tr>
+          <tr>
+            <td>Per-request overhead (1 WASM plugin)</td>
+            <td class="target">&lt;150μs</td>
+          </tr>
+          <tr>
+            <td>Streaming TTFB overhead</td>
+            <td class="target">&lt;1ms</td>
+          </tr>
+          <tr>
+            <td>Memory at idle</td>
+            <td class="target">&lt;30MB</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- ============ Footer ============ -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-badges">
+        <a href="https://github.com/Temikus/butter/actions/workflows/ci.yml"><img src="https://github.com/Temikus/butter/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+        <a href="https://goreportcard.com/report/github.com/temikus/butter"><img src="https://goreportcard.com/badge/github.com/temikus/butter" alt="Go Report Card"></a>
+        <img src="https://img.shields.io/github/go-mod/go-version/Temikus/butter" alt="Go Version">
+        <img src="https://img.shields.io/github/license/Temikus/butter" alt="License">
+      </div>
+      <p>
+        <a href="https://github.com/temikus/butter">Butter</a> — A blazingly fast AI proxy gateway.
+        Inspired by <a href="https://github.com/maximhq/bifrost">Bifrost</a>.
+      </p>
+    </div>
+  </footer>
+
+  <!-- Prism.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</body>
+</html>

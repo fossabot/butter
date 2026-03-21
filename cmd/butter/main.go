@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/provider"
+	"github.com/temikus/butter/internal/provider/openai"
 	"github.com/temikus/butter/internal/provider/openrouter"
 	"github.com/temikus/butter/internal/proxy"
 	"github.com/temikus/butter/internal/transport"
@@ -52,12 +52,7 @@ func main() {
 		case "openrouter":
 			registry.Register(openrouter.New(provCfg.BaseURL, httpClient))
 		case "openai":
-			// OpenAI is OpenAI-compatible, so we reuse the OpenRouter provider
-			// with a different base URL. Full OpenAI provider comes in Phase 2.
-			registry.Register(&aliasProvider{
-				name:     "openai",
-				provider: openrouter.New(provCfg.BaseURL, httpClient),
-			})
+			registry.Register(openai.New(provCfg.BaseURL, httpClient))
 		default:
 			logger.Warn("unknown provider, skipping", "provider", name)
 		}
@@ -88,26 +83,4 @@ func main() {
 	}
 
 	fmt.Println("butter stopped")
-}
-
-// aliasProvider wraps a provider with a different name.
-// Used temporarily to support OpenAI via OpenRouter's compatible API.
-type aliasProvider struct {
-	name     string
-	provider provider.Provider
-}
-
-func (a *aliasProvider) Name() string                          { return a.name }
-func (a *aliasProvider) SupportsOperation(op provider.Operation) bool { return a.provider.SupportsOperation(op) }
-
-func (a *aliasProvider) ChatCompletion(ctx context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
-	return a.provider.ChatCompletion(ctx, req)
-}
-
-func (a *aliasProvider) ChatCompletionStream(ctx context.Context, req *provider.ChatRequest) (provider.Stream, error) {
-	return a.provider.ChatCompletionStream(ctx, req)
-}
-
-func (a *aliasProvider) Passthrough(ctx context.Context, method, path string, body io.Reader, headers http.Header) (*http.Response, error) {
-	return a.provider.Passthrough(ctx, method, path, body, headers)
 }

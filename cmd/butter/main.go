@@ -13,6 +13,7 @@ import (
 
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/provider"
+	"github.com/temikus/butter/internal/provider/anthropic"
 	"github.com/temikus/butter/internal/provider/openai"
 	"github.com/temikus/butter/internal/provider/openrouter"
 	"github.com/temikus/butter/internal/proxy"
@@ -53,6 +54,8 @@ func main() {
 			registry.Register(openrouter.New(provCfg.BaseURL, httpClient))
 		case "openai":
 			registry.Register(openai.New(provCfg.BaseURL, httpClient))
+		case "anthropic":
+			registry.Register(anthropic.New(provCfg.BaseURL, httpClient))
 		default:
 			logger.Warn("unknown provider, skipping", "provider", name)
 		}

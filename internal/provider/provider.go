@@ -35,6 +35,12 @@ type Provider interface {
 	SupportsOperation(op Operation) bool
 }
 
+// AuthHeaderSetter is an optional interface for providers that use non-Bearer
+// authentication (e.g., Anthropic uses x-api-key instead of Authorization: Bearer).
+type AuthHeaderSetter interface {
+	SetAuthHeader(headers http.Header, apiKey string)
+}
+
 // Stream represents a server-sent events stream from a provider.
 type Stream interface {
 	// Next returns the next SSE data line. Returns io.EOF when done.

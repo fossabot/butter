@@ -285,7 +285,11 @@ func (e *Engine) DispatchPassthrough(ctx context.Context, providerName, method, 
 	apiKey := e.selectKey(providerName, "")
 	if apiKey != "" {
 		headers = headers.Clone()
-		headers.Set("Authorization", "Bearer "+apiKey)
+		if setter, ok := p.(provider.AuthHeaderSetter); ok {
+			setter.SetAuthHeader(headers, apiKey)
+		} else {
+			headers.Set("Authorization", "Bearer "+apiKey)
+		}
 	}
 
 	e.logger.Info("dispatching passthrough",

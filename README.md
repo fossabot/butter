@@ -15,7 +15,7 @@ A blazingly fast AI proxy gateway written in Go. Butter sits between your applic
 Inspired by [Bifrost](https://github.com/maximhq/bifrost), but with a focus on simplicity, extensibility via WASM plugins, and raw performance.
 
 ```
-Your App ──▶ Butter ──▶ OpenAI / OpenRouter / ...
+Your App ──▶ Butter ──▶ OpenAI / Anthropic / OpenRouter / ...
                 │
                 ├── Unified OpenAI-compatible API
                 ├── Automatic failover & retries
@@ -28,27 +28,31 @@ Your App ──▶ Butter ──▶ OpenAI / OpenRouter / ...
 **Available now:**
 - OpenAI-compatible `/v1/chat/completions` endpoint
 - Streaming (SSE) and non-streaming responses
-- OpenAI and OpenRouter providers (any OpenAI-compatible API via shared base)
+- OpenAI, Anthropic, and OpenRouter providers (any OpenAI-compatible API via shared base)
+- Anthropic format translation (OpenAI requests automatically converted to/from Anthropic's native format)
 - Multi-provider routing with model-specific provider lists and priority/round-robin strategies
 - YAML configuration with environment variable substitution
 - Weighted random key selection with per-key model allowlists
 - Multi-provider failover with configurable retry-on status codes and exponential backoff
-- Raw HTTP passthrough for unsupported endpoints
+- Plugin system with ordered hook chains (pre/post HTTP, pre/post LLM, stream chunks, observability traces)
+- Built-in request logging plugin (structured slog traces with provider, model, status, duration)
+- Raw HTTP passthrough for unsupported endpoints (`/native/{provider}/*`)
 - Health check endpoint (`/healthz`)
 - Graceful shutdown
 
 **Coming soon:**
-- More providers (Anthropic, 20+ more)
-- Plugin system — built-in Go plugins + sandboxed WASM plugins via [Extism](https://extism.org/)
+- More providers (20+ to match Bifrost coverage)
+- WASM plugin sandbox via [Extism](https://extism.org/) for external plugins
+- Built-in rate limiter and Prometheus metrics plugins
 - Response caching (in-memory LRU, Redis)
-- OpenTelemetry tracing and Prometheus metrics
+- OpenTelemetry tracing
 
 ## Quick Start
 
 ### Prerequisites
 
 - Go 1.25+ (uses enhanced `ServeMux` pattern routing)
-- An API key for a supported provider ([OpenAI](https://platform.openai.com/), [OpenRouter](https://openrouter.ai/), or any OpenAI-compatible API)
+- An API key for a supported provider ([OpenAI](https://platform.openai.com/), [Anthropic](https://console.anthropic.com/), [OpenRouter](https://openrouter.ai/), or any OpenAI-compatible API)
 
 ### 1. Install
 
@@ -70,6 +74,7 @@ Edit `config.yaml` or set environment variables:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
 export OPENROUTER_API_KEY="sk-or-v1-..."
 ```
 
@@ -91,6 +96,12 @@ providers:
       - key: "${OPENAI_API_KEY}"
         weight: 1
 
+  anthropic:
+    base_url: https://api.anthropic.com/v1
+    keys:
+      - key: "${ANTHROPIC_API_KEY}"
+        weight: 1
+
   openrouter:
     base_url: https://openrouter.ai/api/v1
     keys:
@@ -103,8 +114,8 @@ routing:
     "gpt-4o":
       providers: [openai, openrouter]
       strategy: priority
-    "gpt-4o-mini":
-      providers: [openai, openrouter]
+    "claude-sonnet-4-20250514":
+      providers: [anthropic, openrouter]
       strategy: priority
   failover:
     enabled: true
@@ -114,6 +125,10 @@ routing:
       initial: 100ms
       multiplier: 2.0
       max: 5s
+
+plugins:
+  requestlog:
+    level: info
 ```
 
 </details>
@@ -233,11 +248,14 @@ butter/
 │   ├── config/                  YAML config with env var substitution
 │   ├── transport/               HTTP server and handlers
 │   ├── proxy/                   Core dispatch engine (routing, failover, key selection)
+│   ├── plugin/                  Plugin system (interfaces, chain, manager)
+│   │   └── builtin/requestlog/  Request logging plugin
 │   └── provider/
 │       ├── provider.go          Provider interface & types
 │       ├── registry.go          Thread-safe provider registry
 │       ├── openaicompat/        Reusable base for OpenAI-compatible APIs
 │       ├── openai/              OpenAI provider
+│       ├── anthropic/           Anthropic provider (format translation)
 │       └── openrouter/          OpenRouter provider
 ├── config.example.yaml
 ├── justfile

@@ -85,7 +85,7 @@
         <div class="feature-card">
           <span class="icon">&#127919;</span>
           <h3>Multi-Provider Routing</h3>
-          <p>Route models to specific providers with priority or round-robin strategies.</p>
+          <p>Route models to OpenAI, Anthropic, and OpenRouter with priority or round-robin strategies.</p>
         </div>
         <div class="feature-card">
           <span class="icon">&#128259;</span>
@@ -103,16 +103,16 @@
           <p>Weighted random key selection with per-key model allowlists.</p>
         </div>
         <div class="feature-card">
-          <span class="icon">&#128220;</span>
-          <h3>YAML Config</h3>
-          <p>Simple YAML configuration with environment variable substitution.</p>
+          <span class="icon">&#128268;</span>
+          <h3>Plugin System</h3>
+          <p>Ordered hook chains for request/response processing with fail-open design. Built-in request logger included.</p>
         </div>
 
         <!-- Coming soon -->
         <div class="feature-card coming-soon">
           <span class="coming-soon-badge">Coming Soon</span>
-          <h3>WASM Plugin System</h3>
-          <p>Built-in Go plugins plus sandboxed WASM plugins via Extism for custom logic.</p>
+          <h3>WASM Plugin Sandbox</h3>
+          <p>Sandboxed WASM plugins via Extism for external custom logic in any language.</p>
         </div>
         <div class="feature-card coming-soon">
           <span class="coming-soon-badge">Coming Soon</span>
@@ -121,7 +121,7 @@
         </div>
         <div class="feature-card coming-soon">
           <span class="coming-soon-badge">Coming Soon</span>
-          <h3>Observability</h3>
+          <h3>Full Observability</h3>
           <p>OpenTelemetry tracing and Prometheus metrics for production monitoring.</p>
         </div>
       </div>
@@ -212,20 +212,22 @@ console.log(completion.choices[0].message.content);</code></pre>
     <h2 class="section-title">Architecture</h2>
     <p class="section-subtitle">Minimal layers, maximum throughput.</p>
 
-    <div class="architecture-diagram">Your App ──▶ <span class="highlight">Butter</span> ──▶ OpenAI / OpenRouter / ...
+    <div class="architecture-diagram">Your App ──▶ <span class="highlight">Butter</span> ──▶ OpenAI / Anthropic / OpenRouter / ...
                 │
                 ├── Unified OpenAI-compatible API
                 ├── Automatic failover &amp; retries
                 ├── Weighted key rotation
-                └── Plugin hooks (Go + WASM)
+                └── Plugin hooks (pre/post HTTP, LLM, streaming)
 
 <span class="highlight">Request Flow:</span>
 
 Client → transport.Server (HTTP)
+       → Plugin Chain (pre-hooks)
        → proxy.Engine (routing/dispatch)
        → provider.Registry
        → Provider impl
-       → upstream API</div>
+       → Plugin Chain (post-hooks)
+       → Response</div>
   </section>
 
   <!-- ============ Performance ============ -->

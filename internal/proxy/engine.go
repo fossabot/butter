@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/rand/v2"
+	"net/http"
 	"time"
 
 	"github.com/temikus/butter/internal/config"
@@ -265,6 +267,34 @@ func pow(base float64, exp int) float64 {
 		result *= base
 	}
 	return result
+}
+
+// DispatchPassthrough forwards a raw HTTP request to the named provider.
+// It selects an API key and delegates to the provider's Passthrough method.
+func (e *Engine) DispatchPassthrough(ctx context.Context, providerName, method, path string, body io.Reader, headers http.Header) (*http.Response, error) {
+	p, err := e.registry.Get(providerName)
+	if err != nil {
+		return nil, err
+	}
+
+	if !p.SupportsOperation(provider.OpPassthrough) {
+		return nil, fmt.Errorf("provider %q does not support passthrough", providerName)
+	}
+
+	// Select a key (model-agnostic for passthrough).
+	apiKey := e.selectKey(providerName, "")
+	if apiKey != "" {
+		headers = headers.Clone()
+		headers.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	e.logger.Info("dispatching passthrough",
+		"provider", providerName,
+		"method", method,
+		"path", path,
+	)
+
+	return p.Passthrough(ctx, method, path, body, headers)
 }
 
 func containsString(ss []string, s string) bool {

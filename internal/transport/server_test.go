@@ -349,6 +349,154 @@ func TestProviderNon200Relayed(t *testing.T) {
 	}
 }
 
+func TestNativePassthroughGET(t *testing.T) {
+	mockProvider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			http.Error(w, "not found", 404)
+			return
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.Header.Get("Authorization") != "Bearer test-key" {
+			t.Errorf("expected auth header, got: %s", r.Header.Get("Authorization"))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"gpt-4o"}]}`)
+	}))
+	defer mockProvider.Close()
+
+	ts := setupTestServer(t, mockProvider.URL)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/native/openrouter/models")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, body)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "gpt-4o") {
+		t.Errorf("expected response to contain gpt-4o, got: %s", body)
+	}
+}
+
+func TestNativePassthroughPOST(t *testing.T) {
+	mockProvider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/embeddings" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			http.Error(w, "not found", 404)
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+
+		// Echo back the body to verify it was forwarded.
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+	}))
+	defer mockProvider.Close()
+
+	ts := setupTestServer(t, mockProvider.URL)
+	defer ts.Close()
+
+	reqBody := `{"input":"hello","model":"text-embedding-3-small"}`
+	resp, err := http.Post(ts.URL+"/native/openrouter/embeddings", "application/json", strings.NewReader(reqBody))
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, body)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != reqBody {
+		t.Errorf("expected echoed body %q, got %q", reqBody, body)
+	}
+}
+
+func TestNativePassthroughNestedPath(t *testing.T) {
+	mockProvider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Echo the path so the test can verify correct forwarding.
+		_, _ = fmt.Fprintf(w, `{"path":%q}`, r.URL.Path)
+	}))
+	defer mockProvider.Close()
+
+	ts := setupTestServer(t, mockProvider.URL)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/native/openrouter/chat/completions")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var result map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if result["path"] != "/chat/completions" {
+		t.Errorf("expected /chat/completions, got %s", result["path"])
+	}
+}
+
+func TestNativePassthroughUnknownProvider(t *testing.T) {
+	mockProvider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer mockProvider.Close()
+
+	ts := setupTestServer(t, mockProvider.URL)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/native/nonexistent/models")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", resp.StatusCode)
+	}
+}
+
+func TestNativePassthroughRelaysUpstreamHeaders(t *testing.T) {
+	mockProvider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Custom-Provider", "test-value")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"ok":true}`)
+	}))
+	defer mockProvider.Close()
+
+	ts := setupTestServer(t, mockProvider.URL)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/native/openrouter/models")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if v := resp.Header.Get("X-Custom-Provider"); v != "test-value" {
+		t.Errorf("expected X-Custom-Provider=test-value, got %q", v)
+	}
+}
+
 func TestConcurrentRequests(t *testing.T) {
 	mockProv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

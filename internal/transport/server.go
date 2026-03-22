@@ -31,6 +31,7 @@ func NewServer(cfg *config.ServerConfig, engine *proxy.Engine, logger *slog.Logg
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/chat/completions", s.handleChatCompletions)
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
+	mux.HandleFunc("/native/{provider}/{path...}", s.handleNativePassthrough)
 
 	s.httpServer = &http.Server{
 		Addr:         cfg.Address,
@@ -153,6 +154,33 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request, body []byt
 		_, _ = fmt.Fprintf(w, "%s\n\n", chunk)
 		flusher.Flush()
 	}
+}
+
+func (s *Server) handleNativePassthrough(w http.ResponseWriter, r *http.Request) {
+	providerName := r.PathValue("provider")
+	upstreamPath := "/" + r.PathValue("path")
+
+	// Clone headers, stripping hop-by-hop headers.
+	fwdHeaders := r.Header.Clone()
+	fwdHeaders.Del("Host")
+	fwdHeaders.Del("Connection")
+
+	resp, err := s.engine.DispatchPassthrough(r.Context(), providerName, r.Method, upstreamPath, r.Body, fwdHeaders)
+	if err != nil {
+		s.logger.Error("passthrough dispatch failed", "provider", providerName, "error", err)
+		s.writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Relay upstream response headers.
+	for k, vs := range resp.Header {
+		for _, v := range vs {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
 }
 
 func (s *Server) writeError(w http.ResponseWriter, status int, msg string) {

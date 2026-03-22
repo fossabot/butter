@@ -102,6 +102,55 @@ func BenchmarkStreamingRequest(b *testing.B) {
 	}
 }
 
+func BenchmarkBaselineNonStreaming(b *testing.B) {
+	mockProv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"id":"bench","choices":[{"message":{"content":"hi"}}]}`)
+	}))
+	defer mockProv.Close()
+
+	reqBody := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		resp, err := http.Post(mockProv.URL, "application/json", strings.NewReader(reqBody))
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, _ = io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+	}
+}
+
+func BenchmarkBaselineStreaming(b *testing.B) {
+	mockProv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		flusher := w.(http.Flusher)
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(200)
+		_, _ = fmt.Fprint(w, "data: {\"chunk\":1}\n\n")
+		flusher.Flush()
+		_, _ = fmt.Fprint(w, "data: {\"chunk\":2}\n\n")
+		flusher.Flush()
+		_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer mockProv.Close()
+
+	reqBody := `{"model":"test","messages":[{"role":"user","content":"hi"}],"stream":true}`
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		resp, err := http.Post(mockProv.URL, "application/json", strings.NewReader(reqBody))
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, _ = io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+	}
+}
+
 func BenchmarkIsStreamRequest(b *testing.B) {
 	bodies := [][]byte{
 		[]byte(`{"model":"test","messages":[],"stream":true}`),

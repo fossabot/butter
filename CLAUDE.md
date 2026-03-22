@@ -5,14 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Test Commands
 
 ```bash
-go build ./...                        # Build all packages
-go build -o pkg/bin/butter ./cmd/butter/  # Build binary
-go run ./cmd/butter/ -config config.yaml  # Run from source
-go test ./... -v -race -count=1       # Run all tests (matches CI)
-go test ./internal/proxy/ -run TestDispatch -v  # Run a single test
-go vet ./...                          # Static analysis
-golangci-lint run                     # Lint (CI uses golangci-lint-action v6)
-go test ./... -bench=. -benchmem     # Run benchmarks with allocation reporting
+just build                            # Build binary (with commit hash)
+just build-release                    # Build with full version info from git
+just serve                            # Run with config (auto-loads API keys)
+just test                             # Run all tests with race detector
+just vet                              # Static analysis
+just lint                             # Run golangci-lint
+just check                            # Run vet + lint + test
+just bench                            # Run benchmarks with allocation reporting
+just release-snapshot                 # Test GoReleaser locally (no publish)
+just test-one ./internal/proxy/ TestDispatch  # Run a single test
 ```
 
 ## Architecture

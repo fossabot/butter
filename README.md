@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Temikus/butter/actions/workflows/ci.yml"><img src="https://github.com/Temikus/butter/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a> <a href="https://goreportcard.com/report/github.com/temikus/butter"><img src="https://goreportcard.com/badge/github.com/temikus/butter" alt="Go Report Card"></a> <img src="https://img.shields.io/github/go-mod/go-version/Temikus/butter" alt="Go Version"> <img src="https://img.shields.io/github/license/Temikus/butter" alt="License">
+  <a href="https://github.com/Temikus/butter/releases"><img src="https://img.shields.io/github/v/release/Temikus/butter" alt="Release"></a> <a href="https://github.com/Temikus/butter/actions/workflows/ci.yml"><img src="https://github.com/Temikus/butter/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a> <a href="https://goreportcard.com/report/github.com/temikus/butter"><img src="https://goreportcard.com/badge/github.com/temikus/butter" alt="Go Report Card"></a> <img src="https://img.shields.io/github/go-mod/go-version/Temikus/butter" alt="Go Version"> <img src="https://img.shields.io/github/license/Temikus/butter" alt="License">
 </p>
 
 A blazingly fast AI proxy gateway written in Go. Butter sits between your application and AI providers, offering a unified OpenAI-compatible API with minimal latency overhead.
@@ -50,7 +50,9 @@ Your App ──▶ Butter ──▶ OpenAI / OpenRouter / ...
 - Go 1.25+ (uses enhanced `ServeMux` pattern routing)
 - An API key for a supported provider ([OpenAI](https://platform.openai.com/), [OpenRouter](https://openrouter.ai/), or any OpenAI-compatible API)
 
-### 1. Clone and build
+### 1. Install
+
+Download the latest binary from [GitHub Releases](https://github.com/temikus/butter/releases), or build from source:
 
 ```bash
 git clone https://github.com/temikus/butter.git
@@ -204,12 +206,14 @@ console.log(completion.choices[0].message.content);
 A [`justfile`](https://github.com/casey/just) is provided for common tasks:
 
 ```bash
-just build              # Build binary
+just build              # Build binary (with commit hash)
+just build-release      # Build with full version info from git
 just serve              # Run with config (auto-loads API keys from ~/.openai/api-key, ~/.openrouter/api-key)
 just test               # Run all tests with race detector
 just lint               # Run golangci-lint
 just check              # Run vet + lint + test
 just bench              # Run benchmarks with allocation reporting
+just release-snapshot   # Test GoReleaser locally (no publish)
 ```
 
 Or use Go directly:

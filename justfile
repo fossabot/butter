@@ -53,6 +53,10 @@ serve config="config.example.yaml":
 test:
     go test ./... -v -race -count=1
 
+# Run a single test: just test-one ./internal/proxy/ TestDispatch
+test-one pkg name:
+    go test {{pkg}} -run {{name}} -v -race -count=1
+
 # Lint
 lint:
     golangci-lint run

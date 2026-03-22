@@ -1,9 +1,22 @@
 # Default recipe
 default: build
 
-# Build the binary
+# Build the binary (with commit hash)
 build:
-    go build -o pkg/bin/butter ./cmd/butter/
+    go build -ldflags "-X github.com/temikus/butter/internal/version.Commit=$(git rev-parse --short HEAD)" \
+      -o pkg/bin/butter ./cmd/butter/
+
+# Build with full version info from git
+build-release:
+    go build -ldflags "-s -w \
+      -X github.com/temikus/butter/internal/version.Version=$(git describe --tags --always --dirty) \
+      -X github.com/temikus/butter/internal/version.Commit=$(git rev-parse --short HEAD) \
+      -X github.com/temikus/butter/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      -o pkg/bin/butter ./cmd/butter/
+
+# Test release locally (no publish)
+release-snapshot:
+    goreleaser release --snapshot --clean
 
 # Run from source with config (default: config.example.yaml)
 serve config="config.example.yaml":

@@ -13,6 +13,7 @@ import (
 
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/plugin"
+	"github.com/temikus/butter/internal/version"
 	"github.com/temikus/butter/internal/provider"
 	"github.com/temikus/butter/internal/provider/anthropic"
 	"github.com/temikus/butter/internal/provider/openai"
@@ -22,12 +23,18 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		fmt.Println(version.String())
+		os.Exit(0)
+	}
+
 	configPath := flag.String("config", "config.yaml", "path to configuration file")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
+	logger.Info("starting butter", "version", version.Version, "commit", version.Commit)
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {

@@ -1,0 +1,55 @@
+version: 2
+
+project_name: butter
+
+before:
+  hooks:
+    - go mod tidy
+    - go vet ./...
+    - go test ./... -race -count=1
+
+builds:
+  - id: butter
+    main: ./cmd/butter/
+    binary: butter
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/temikus/butter/internal/version.Version={{.Version}}
+      - -X github.com/temikus/butter/internal/version.Commit={{.Commit}}
+      - -X github.com/temikus/butter/internal/version.Date={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "Merge pull request"
+
+release:
+  github:
+    owner: temikus
+    name: butter
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"

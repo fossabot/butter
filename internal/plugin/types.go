@@ -42,6 +42,12 @@ type RequestContext struct {
 	Body      []byte
 	Metadata  map[string]any
 	StartTime time.Time
+
+	// Short-circuit fields — set by PreHTTP plugins to reject a request
+	// before it reaches the provider.
+	ShortCircuit       bool
+	ShortCircuitStatus int
+	ShortCircuitBody   []byte
 }
 
 // Response wraps the provider response for PostLLM hooks.

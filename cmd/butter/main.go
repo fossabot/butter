@@ -13,6 +13,7 @@ import (
 
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/plugin"
+	"github.com/temikus/butter/internal/plugin/builtin/ratelimit"
 	"github.com/temikus/butter/internal/plugin/builtin/requestlog"
 	"github.com/temikus/butter/internal/version"
 	"github.com/temikus/butter/internal/provider"
@@ -74,6 +75,10 @@ func main() {
 	pluginMgr := plugin.NewManager(logger)
 
 	// Register built-in plugins based on config.
+	// Rate limiter runs first so it can reject before other plugins process.
+	if _, ok := cfg.Plugins["ratelimit"]; ok {
+		pluginMgr.Register(ratelimit.New())
+	}
 	if _, ok := cfg.Plugins["requestlog"]; ok {
 		pluginMgr.Register(requestlog.New(logger))
 	}

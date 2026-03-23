@@ -85,6 +85,21 @@ func (p *trackingLLMPlugin) PostLLM(ctx *RequestContext, resp *Response) (*Respo
 	return resp, nil
 }
 
+// shortCircuitTransportPlugin sets ShortCircuit on PreHTTP.
+type shortCircuitTransportPlugin struct {
+	trackingTransportPlugin
+}
+
+func (p *shortCircuitTransportPlugin) PreHTTP(ctx *RequestContext) error {
+	if p.preOrder != nil {
+		*p.preOrder = append(*p.preOrder, p.name)
+	}
+	ctx.ShortCircuit = true
+	ctx.ShortCircuitStatus = 429
+	ctx.ShortCircuitBody = []byte(`{"error":"rate limited"}`)
+	return nil
+}
+
 // trackingObsPlugin records traces it receives.
 type trackingObsPlugin struct {
 	stubPlugin
@@ -118,6 +133,30 @@ func TestChainPreHTTPOrder(t *testing.T) {
 
 	expected := []string{"a", "b", "c"}
 	assertOrder(t, *order, expected, "PreHTTP")
+}
+
+func TestChainPreHTTPShortCircuitStopsChain(t *testing.T) {
+	m, c := newTestChain()
+	order := &[]string{}
+
+	// First plugin sets short-circuit.
+	m.Register(&shortCircuitTransportPlugin{
+		trackingTransportPlugin: trackingTransportPlugin{
+			stubPlugin: stubPlugin{name: "limiter"},
+			preOrder:   order,
+		},
+	})
+	// Second plugin should NOT be called.
+	m.Register(&trackingTransportPlugin{stubPlugin: stubPlugin{name: "after"}, preOrder: order})
+
+	ctx := &RequestContext{}
+	c.RunPreHTTP(ctx)
+
+	if !ctx.ShortCircuit {
+		t.Error("expected ShortCircuit to be true")
+	}
+	expected := []string{"limiter"}
+	assertOrder(t, *order, expected, "PreHTTP short-circuit")
 }
 
 func TestChainPostHTTPReverseOrder(t *testing.T) {

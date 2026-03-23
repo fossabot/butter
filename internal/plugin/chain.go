@@ -18,10 +18,14 @@ func NewChain(m *Manager, logger *slog.Logger) *Chain {
 }
 
 // RunPreHTTP executes TransportPlugin.PreHTTP in registration order.
+// If a plugin sets ShortCircuit on the context, execution stops early.
 func (c *Chain) RunPreHTTP(ctx *RequestContext) {
 	for _, p := range c.manager.transport {
 		if err := p.PreHTTP(ctx); err != nil {
 			c.logger.Error("plugin PreHTTP error", "plugin", p.Name(), "error", err)
+		}
+		if ctx.ShortCircuit {
+			return
 		}
 	}
 }

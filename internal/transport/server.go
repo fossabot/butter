@@ -94,6 +94,10 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.chain != nil {
 		s.chain.RunPreHTTP(pctx)
+		if pctx.ShortCircuit {
+			s.writeShortCircuit(w, pctx)
+			return
+		}
 		body = pctx.Body
 	}
 
@@ -205,6 +209,10 @@ func (s *Server) handleNativePassthrough(w http.ResponseWriter, r *http.Request)
 	}
 	if s.chain != nil {
 		s.chain.RunPreHTTP(pctx)
+		if pctx.ShortCircuit {
+			s.writeShortCircuit(w, pctx)
+			return
+		}
 	}
 
 	// Clone headers, stripping hop-by-hop headers.
@@ -255,6 +263,18 @@ func (s *Server) emitTrace(pctx *plugin.RequestContext, r *http.Request, status 
 		},
 	}
 	s.chain.EmitTrace(trace)
+}
+
+func (s *Server) writeShortCircuit(w http.ResponseWriter, pctx *plugin.RequestContext) {
+	status := pctx.ShortCircuitStatus
+	if status == 0 {
+		status = http.StatusForbidden
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if len(pctx.ShortCircuitBody) > 0 {
+		_, _ = w.Write(pctx.ShortCircuitBody)
+	}
 }
 
 func (s *Server) writeError(w http.ResponseWriter, status int, msg string) {

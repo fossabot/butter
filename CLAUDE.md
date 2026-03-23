@@ -33,6 +33,7 @@ Client → transport.Server (HTTP) → proxy.Engine (routing/dispatch) → provi
 - `internal/proxy/` — Engine resolves provider via: explicit `provider` field in request → model-based route from config → default provider. Selects API key and dispatches.
 - `internal/provider/` — `Provider` interface (`ChatCompletion`, `ChatCompletionStream`, `Passthrough`, `SupportsOperation`) + thread-safe `Registry` (RWMutex).
 - `internal/provider/openrouter/` — OpenRouter implementation. Line-based SSE parsing with `bufio.Reader`, `sync.Pool` for buffer reuse. Handles `[DONE]` marker.
+- `internal/cache/` — Response cache interface + in-memory LRU with TTL. Cache key derived from SHA256(provider + model + messages + params). Only caches non-streaming requests with temperature=0.
 
 **Endpoints:** `POST /v1/chat/completions`, `GET /healthz`
 
@@ -46,4 +47,4 @@ Client → transport.Server (HTTP) → proxy.Engine (routing/dispatch) → provi
 
 ## Phased Roadmap
 
-Phase 1 (PoC) is complete. Phases 2-5 add multi-provider routing, WASM plugin system (Extism/wazero), caching, and observability.
+Phase 1 (PoC) and Phase 2 (Multi-Provider + Routing) are complete. Phase 3 (Plugin System) is partially complete (Go plugin interfaces, built-in plugins done; WASM pending). Phase 4 (Caching + Observability) is in progress — response caching is done, OTel traces pending.

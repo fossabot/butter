@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/temikus/butter/internal/cache"
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/plugin"
 	"github.com/temikus/butter/internal/plugin/builtin/metrics"
@@ -104,6 +105,16 @@ func main() {
 	}
 
 	engine := proxy.NewEngine(registry, cfg, logger, pluginChain)
+
+	// Response cache.
+	if cfg.Cache.Enabled {
+		logger.Info("response cache enabled",
+			"max_entries", cfg.Cache.MaxEntries,
+			"ttl", cfg.Cache.TTL,
+		)
+		engine.SetCache(cache.NewMemory(cfg.Cache.MaxEntries), cfg.Cache.TTL)
+	}
+
 	server := transport.NewServer(&cfg.Server, engine, logger, pluginChain, serverOpts...)
 
 	// Graceful shutdown.

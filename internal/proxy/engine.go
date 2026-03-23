@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/temikus/butter/internal/cache"
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/plugin"
 	"github.com/temikus/butter/internal/provider"
@@ -24,6 +25,8 @@ type Engine struct {
 	keys     map[string][]config.KeyConfig // provider name -> keys
 	logger   *slog.Logger
 	chain    *plugin.Chain // nil means no plugins
+	cache    cache.Cache   // nil means caching disabled
+	cacheTTL time.Duration
 	// sleepFn is used for backoff delays; overridable for testing.
 	sleepFn func(time.Duration)
 }
@@ -41,6 +44,12 @@ func NewEngine(reg *provider.Registry, cfg *config.Config, logger *slog.Logger, 
 		chain:    chain,
 		sleepFn:  time.Sleep,
 	}
+}
+
+// SetCache enables response caching with the given cache implementation and TTL.
+func (e *Engine) SetCache(c cache.Cache, ttl time.Duration) {
+	e.cache = c
+	e.cacheTTL = ttl
 }
 
 // Dispatch handles a non-streaming chat completion request.
@@ -69,6 +78,26 @@ func (e *Engine) Dispatch(ctx context.Context, rawBody []byte) (*provider.ChatRe
 		pctx = e.chain.RunPreLLM(pctx)
 		rawBody = pctx.Body
 		req.Model = pctx.Model
+	}
+
+	// Check cache for non-streaming, deterministic requests.
+	if e.cache != nil && cache.IsCacheable(rawBody) {
+		cacheKey := cache.DeriveKey(providerNames[0], rawBody)
+		if cached := e.cache.Get(cacheKey); cached != nil {
+			e.logger.Info("cache hit",
+				"model", req.Model,
+				"provider", providerNames[0],
+			)
+			if pctx != nil {
+				pctx.Provider = providerNames[0]
+				pctx.Metadata["cache"] = "hit"
+			}
+			return &provider.ChatResponse{
+				RawBody:    cached,
+				StatusCode: 200,
+				Headers:    http.Header{"X-Butter-Cache": []string{"hit"}},
+			}, nil
+		}
 	}
 
 	failover := e.config.Routing.Failover
@@ -118,6 +147,11 @@ func (e *Engine) Dispatch(ctx context.Context, rawBody []byte) (*provider.ChatRe
 					resp.RawBody = pluginResp.Body
 					resp.StatusCode = pluginResp.StatusCode
 					resp.Headers = pluginResp.Headers
+				}
+				// Store in cache if eligible.
+				if e.cache != nil && resp.StatusCode == 200 && cache.IsCacheable(rawBody) {
+					cacheKey := cache.DeriveKey(providerName, rawBody)
+					e.cache.Set(cacheKey, resp.RawBody, e.cacheTTL)
 				}
 				return resp, nil
 			}

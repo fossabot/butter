@@ -15,6 +15,13 @@ type Config struct {
 	Providers map[string]ProviderConfig   `yaml:"providers"`
 	Routing   RoutingConfig               `yaml:"routing"`
 	Plugins   map[string]map[string]any   `yaml:"plugins,omitempty"`
+	Cache     CacheConfig                 `yaml:"cache"`
+}
+
+type CacheConfig struct {
+	Enabled    bool          `yaml:"enabled"`
+	TTL        time.Duration `yaml:"ttl"`
+	MaxEntries int           `yaml:"max_entries"`
 }
 
 type ServerConfig struct {
@@ -105,6 +112,14 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Routing.Failover.Backoff.Max == 0 {
 		cfg.Routing.Failover.Backoff.Max = 5 * time.Second
+	}
+	if cfg.Cache.Enabled {
+		if cfg.Cache.TTL == 0 {
+			cfg.Cache.TTL = 5 * time.Minute
+		}
+		if cfg.Cache.MaxEntries == 0 {
+			cfg.Cache.MaxEntries = 10000
+		}
 	}
 	for name, p := range cfg.Providers {
 		for i := range p.Keys {

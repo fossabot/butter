@@ -34,17 +34,18 @@ Client → transport.Server (HTTP) → proxy.Engine (routing/dispatch) → provi
 - `internal/provider/` — `Provider` interface (`ChatCompletion`, `ChatCompletionStream`, `Passthrough`, `SupportsOperation`) + thread-safe `Registry` (RWMutex).
 - `internal/provider/openrouter/` — OpenRouter implementation. Line-based SSE parsing with `bufio.Reader`, `sync.Pool` for buffer reuse. Handles `[DONE]` marker.
 - `internal/cache/` — Response cache interface + in-memory LRU with TTL. Cache key derived from SHA256(provider + model + messages + params). Only caches non-streaming requests with temperature=0.
+- `internal/plugin/` — Plugin interfaces (`TransportPlugin`, `LLMPlugin`, `ObservabilityPlugin`), ordered `Chain`, and `Manager`. Built-in plugins: `ratelimit/` (token bucket, global or per-IP), `requestlog/` (structured slog), `metrics/` (OTel SDK counters/histograms, Prometheus exporter on `/metrics`).
 
-**Endpoints:** `POST /v1/chat/completions`, `GET /healthz`
+**Endpoints:** `POST /v1/chat/completions`, `GET /healthz`, `GET /metrics` (when metrics plugin enabled)
 
 ## Design Constraints
 
 - stdlib-only HTTP (no frameworks) — performance target is <50μs proxy overhead
-- Single external dependency: `gopkg.in/yaml.v3`
+- Direct dependency: `gopkg.in/yaml.v3`; metrics plugin adds OTel SDK + Prometheus as indirect dependencies
 - Streaming uses direct byte relay (no JSON re-serialization)
 - Go 1.22+ required for pattern-based ServeMux routing
 - No HashiCorp licensed dependencies
 
 ## Phased Roadmap
 
-Phase 1 (PoC) and Phase 2 (Multi-Provider + Routing) are complete. Phase 3 (Plugin System) is partially complete (Go plugin interfaces, built-in plugins done; WASM pending). Phase 4 (Caching + Observability) is in progress — response caching is done, OTel traces pending.
+Phase 1 (PoC) and Phase 2 (Multi-Provider + Routing) are complete. Phase 3 (Plugin System) is mostly complete — Go plugin interfaces, chain, manager, and all three built-in plugins (rate limiter, request logger, Prometheus metrics) are done; WASM pending. Phase 4 (Caching + Observability) is in progress — in-memory LRU response cache and Prometheus metrics are done; OTel traces and Redis cache pending.

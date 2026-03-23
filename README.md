@@ -38,6 +38,8 @@ Your App ──▶ Butter ──▶ OpenAI / Anthropic / OpenRouter / ...
 - Built-in request logging plugin (structured slog traces with provider, model, status, duration)
 - Built-in rate limiter plugin (token bucket, global or per-IP, configurable RPM)
 - Plugin short-circuit support (plugins can reject requests before they reach the provider)
+- Built-in Prometheus metrics plugin (OTel SDK instruments, exposes `/metrics` endpoint)
+- Response caching (in-memory LRU with TTL; cache key from SHA256 of provider+model+messages+params; temperature=0 non-streaming only)
 - Raw HTTP passthrough for unsupported endpoints (`/native/{provider}/*`)
 - Health check endpoint (`/healthz`)
 - Graceful shutdown
@@ -45,8 +47,7 @@ Your App ──▶ Butter ──▶ OpenAI / Anthropic / OpenRouter / ...
 **Coming soon:**
 - More providers (20+ to match Bifrost coverage)
 - WASM plugin sandbox via [Extism](https://extism.org/) for external plugins
-- Built-in Prometheus metrics plugin
-- Response caching (in-memory LRU, Redis)
+- Redis response cache backend
 - OpenTelemetry tracing
 
 ## Quick Start
@@ -134,6 +135,7 @@ plugins:
     per_ip: false
   requestlog:
     level: info
+  metrics: {}
 ```
 
 </details>
@@ -253,10 +255,12 @@ butter/
 │   ├── config/                  YAML config with env var substitution
 │   ├── transport/               HTTP server and handlers
 │   ├── proxy/                   Core dispatch engine (routing, failover, key selection)
+│   ├── cache/                   Cache interface + in-memory LRU with TTL
 │   ├── plugin/                  Plugin system (interfaces, chain, manager)
 │   │   └── builtin/
 │   │       ├── ratelimit/       Token bucket rate limiter plugin
-│   │       └── requestlog/      Request logging plugin
+│   │       ├── requestlog/      Request logging plugin
+│   │       └── metrics/         Prometheus metrics plugin (OTel SDK)
 │   └── provider/
 │       ├── provider.go          Provider interface & types
 │       ├── registry.go          Thread-safe provider registry
@@ -266,7 +270,7 @@ butter/
 │       └── openrouter/          OpenRouter provider
 ├── config.example.yaml
 ├── justfile
-└── go.mod                       (single dependency: gopkg.in/yaml.v3)
+└── go.mod                       (direct: gopkg.in/yaml.v3; indirect: OTel SDK + Prometheus for metrics plugin)
 ```
 
 ## Performance Targets

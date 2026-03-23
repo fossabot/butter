@@ -113,6 +113,17 @@
           <p>Built-in token bucket rate limiter with global or per-IP modes. Plugins can short-circuit requests before they reach providers.</p>
         </div>
 
+        <div class="feature-card">
+          <span class="icon">&#128202;</span>
+          <h3>Prometheus Metrics</h3>
+          <p>Built-in metrics plugin powered by OTel SDK — request totals, latency histograms, and error counters exposed at <code>/metrics</code>.</p>
+        </div>
+        <div class="feature-card">
+          <span class="icon">&#9889;</span>
+          <h3>Response Caching</h3>
+          <p>In-memory LRU cache with TTL for deterministic requests (temperature=0, non-streaming). Reduces costs and latency for repeated queries.</p>
+        </div>
+
         <!-- Coming soon -->
         <div class="feature-card coming-soon">
           <span class="coming-soon-badge">Coming Soon</span>
@@ -121,13 +132,13 @@
         </div>
         <div class="feature-card coming-soon">
           <span class="coming-soon-badge">Coming Soon</span>
-          <h3>Response Caching</h3>
-          <p>In-memory LRU and Redis caching to reduce costs and latency.</p>
+          <h3>Redis Cache Backend</h3>
+          <p>Distributed response caching with Redis for multi-instance deployments.</p>
         </div>
         <div class="feature-card coming-soon">
           <span class="coming-soon-badge">Coming Soon</span>
-          <h3>Full Observability</h3>
-          <p>OpenTelemetry tracing and Prometheus metrics for production monitoring.</p>
+          <h3>OpenTelemetry Tracing</h3>
+          <p>Distributed tracing with OTel for end-to-end request visibility across providers.</p>
         </div>
       </div>
     </section>

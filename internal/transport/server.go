@@ -18,23 +18,41 @@ import (
 
 // Server is the HTTP transport layer for Butter.
 type Server struct {
-	httpServer *http.Server
-	engine     *proxy.Engine
-	logger     *slog.Logger
-	chain      *plugin.Chain
+	httpServer     *http.Server
+	engine         *proxy.Engine
+	logger         *slog.Logger
+	chain          *plugin.Chain
+	metricsHandler http.Handler
 }
 
-func NewServer(cfg *config.ServerConfig, engine *proxy.Engine, logger *slog.Logger, chain *plugin.Chain) *Server {
+// Option configures optional Server behavior.
+type Option func(*Server)
+
+// WithMetricsHandler registers an HTTP handler at GET /metrics.
+func WithMetricsHandler(h http.Handler) Option {
+	return func(s *Server) {
+		s.metricsHandler = h
+	}
+}
+
+func NewServer(cfg *config.ServerConfig, engine *proxy.Engine, logger *slog.Logger, chain *plugin.Chain, opts ...Option) *Server {
 	s := &Server{
 		engine: engine,
 		logger: logger,
 		chain:  chain,
 	}
 
+	for _, opt := range opts {
+		opt(s)
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/chat/completions", s.handleChatCompletions)
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("/native/{provider}/{path...}", s.handleNativePassthrough)
+	if s.metricsHandler != nil {
+		mux.Handle("GET /metrics", s.metricsHandler)
+	}
 
 	s.httpServer = &http.Server{
 		Addr:         cfg.Address,

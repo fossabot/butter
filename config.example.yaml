@@ -56,3 +56,4 @@ plugins:
     level: info              # debug | info | warn | error
     log_bodies: false        # log request/response bodies (truncated)
     body_max_bytes: 1024     # max body bytes to log
+  metrics: {}                # Prometheus metrics at GET /metrics (OTel-based)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/plugin"
+	"github.com/temikus/butter/internal/plugin/builtin/metrics"
 	"github.com/temikus/butter/internal/plugin/builtin/ratelimit"
 	"github.com/temikus/butter/internal/plugin/builtin/requestlog"
 	"github.com/temikus/butter/internal/version"
@@ -83,6 +84,12 @@ func main() {
 		pluginMgr.Register(requestlog.New(logger))
 	}
 
+	var metricsPlugin *metrics.Plugin
+	if _, ok := cfg.Plugins["metrics"]; ok {
+		metricsPlugin = metrics.New()
+		pluginMgr.Register(metricsPlugin)
+	}
+
 	if err := pluginMgr.InitAll(cfg.Plugins); err != nil {
 		logger.Error("failed to initialize plugins", "error", err)
 		os.Exit(1)
@@ -90,8 +97,14 @@ func main() {
 
 	pluginChain := plugin.NewChain(pluginMgr, logger)
 
+	// Build server options.
+	var serverOpts []transport.Option
+	if metricsPlugin != nil {
+		serverOpts = append(serverOpts, transport.WithMetricsHandler(metricsPlugin.Handler()))
+	}
+
 	engine := proxy.NewEngine(registry, cfg, logger, pluginChain)
-	server := transport.NewServer(&cfg.Server, engine, logger, pluginChain)
+	server := transport.NewServer(&cfg.Server, engine, logger, pluginChain, serverOpts...)
 
 	// Graceful shutdown.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

@@ -33,9 +33,13 @@ func TestInit_InvalidWASM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(f.Name())
-	f.WriteString("not wasm content")
-	f.Close()
+	defer func() { _ = os.Remove(f.Name()) }()
+	if _, err := f.WriteString("not wasm content"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	p := pluginwasm.New("test", f.Name(), discardLogger)
 	err = p.Init(nil)
@@ -78,7 +82,7 @@ func TestWithExamplePlugin(t *testing.T) {
 	if err := p.Init(nil); err != nil {
 		t.Fatalf("Init() error: %v", err)
 	}
-	defer p.Close()
+	defer func() { _ = p.Close() }()
 
 	rc := &plugin.RequestContext{
 		Request:  &http.Request{Header: http.Header{}},

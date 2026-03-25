@@ -11,10 +11,11 @@ import (
 type Operation string
 
 const (
-	OpChatCompletion Operation = "chat_completion"
-	OpEmbeddings     Operation = "embeddings"
-	OpPassthrough    Operation = "passthrough"
-	OpModels         Operation = "models"
+	OpChatCompletion       Operation = "chat_completion"
+	OpChatCompletionStream Operation = "chat_completion_stream"
+	OpEmbeddings           Operation = "embeddings"
+	OpPassthrough          Operation = "passthrough"
+	OpModels               Operation = "models"
 )
 
 // Provider is the interface that all AI providers must implement.

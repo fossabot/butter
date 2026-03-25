@@ -50,7 +50,7 @@ func (p *Provider) Name() string { return "anthropic" }
 
 func (p *Provider) SupportsOperation(op provider.Operation) bool {
 	switch op {
-	case provider.OpChatCompletion, provider.OpPassthrough:
+	case provider.OpChatCompletion, provider.OpChatCompletionStream, provider.OpPassthrough:
 		return true
 	}
 	return false

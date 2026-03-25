@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/temikus/butter/internal/appkey"
 	"github.com/temikus/butter/internal/cache"
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/plugin"
@@ -139,6 +140,18 @@ func main() {
 	var serverOpts []transport.Option
 	if metricsPlugin != nil {
 		serverOpts = append(serverOpts, transport.WithMetricsHandler(metricsPlugin.Handler()))
+	}
+	if cfg.AppKeys.Enabled {
+		store := appkey.NewStore()
+		for _, entry := range cfg.AppKeys.Keys {
+			store.Provision(entry.Key, entry.Label)
+		}
+		serverOpts = append(serverOpts, transport.WithAppKeyStore(store, cfg.AppKeys.Header, cfg.AppKeys.RequireKey))
+		logger.Info("app key tracking enabled",
+			"require_key", cfg.AppKeys.RequireKey,
+			"header", cfg.AppKeys.Header,
+			"pre_provisioned", len(cfg.AppKeys.Keys),
+		)
 	}
 
 	engine := proxy.NewEngine(registry, cfg, logger, pluginChain)

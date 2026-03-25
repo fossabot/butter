@@ -106,3 +106,11 @@ plugins:
 # Plugins may export any of: pre_http, post_http, pre_llm, post_llm
 # Unexported hooks are silently skipped. Errors are logged, never fatal.
 # See plugins/example-wasm/ and plugin/sdk/ for authoring docs.
+
+# app_keys:                      # Optional — omit entirely to disable (zero overhead)
+#   enabled: false
+#   require_key: false           # Reject requests that omit the key header
+#   header: X-Butter-App-Key     # Header name clients use to identify themselves
+#   keys:                        # Pre-provisioned keys (optional)
+#     - key: "${MYAPP_BUTTER_KEY}"
+#       label: my-chatbot-prod

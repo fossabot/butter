@@ -17,6 +17,22 @@ type Config struct {
 	Plugins     map[string]map[string]any `yaml:"plugins,omitempty"`
 	WASMPlugins []WASMPluginConfig        `yaml:"wasm_plugins,omitempty"`
 	Cache       CacheConfig               `yaml:"cache"`
+	AppKeys     AppKeysConfig             `yaml:"app_keys,omitempty"`
+}
+
+// AppKeysConfig controls the optional application-key tracking feature.
+// When Enabled is false (default) there is zero runtime overhead.
+type AppKeysConfig struct {
+	Enabled    bool          `yaml:"enabled"`
+	RequireKey bool          `yaml:"require_key"`
+	Header     string        `yaml:"header"`
+	Keys       []AppKeyEntry `yaml:"keys,omitempty"`
+}
+
+// AppKeyEntry represents a pre-provisioned application key in config.
+type AppKeyEntry struct {
+	Key   string `yaml:"key"`
+	Label string `yaml:"label,omitempty"`
 }
 
 // WASMPluginConfig holds the configuration for a single WASM plugin.
@@ -132,6 +148,9 @@ func applyDefaults(cfg *Config) {
 		if cfg.Cache.MaxEntries == 0 {
 			cfg.Cache.MaxEntries = 10000
 		}
+	}
+	if cfg.AppKeys.Header == "" {
+		cfg.AppKeys.Header = "X-Butter-App-Key"
 	}
 	for name, p := range cfg.Providers {
 		for i := range p.Keys {

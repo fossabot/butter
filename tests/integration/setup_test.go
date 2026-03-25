@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/temikus/butter/internal/appkey"
 	"github.com/temikus/butter/internal/cache"
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/plugin"
@@ -28,11 +29,14 @@ import (
 // serverCfg holds options for building a Butter test server.
 // Provider base URLs point at mock httptest servers, not real APIs.
 type serverCfg struct {
-	providers    map[string]string   // provider name → mock base URL
-	defaultProv  string
-	modelRoutes  map[string][]string // model → ordered provider list
-	failover     bool
-	cacheEnabled bool
+	providers      map[string]string   // provider name → mock base URL
+	defaultProv    string
+	modelRoutes    map[string][]string // model → ordered provider list
+	failover       bool
+	cacheEnabled   bool
+	appKeysEnabled bool
+	appKeyRequire  bool
+	appKeyStore    *appkey.Store // set by build() when appKeysEnabled
 }
 
 func newServerCfg() *serverCfg {
@@ -64,6 +68,12 @@ func (c *serverCfg) withFailover() *serverCfg {
 
 func (c *serverCfg) withCache() *serverCfg {
 	c.cacheEnabled = true
+	return c
+}
+
+func (c *serverCfg) withAppKeys(requireKey bool) *serverCfg {
+	c.appKeysEnabled = true
+	c.appKeyRequire = requireKey
 	return c
 }
 
@@ -127,7 +137,13 @@ func (c *serverCfg) build(t *testing.T) *httptest.Server {
 		engine.SetCache(cache.NewMemory(100), 5*time.Minute)
 	}
 
-	srv := transport.NewServer(&cfg.Server, engine, logger, chain)
+	var serverOpts []transport.Option
+	if c.appKeysEnabled {
+		c.appKeyStore = appkey.NewStore()
+		serverOpts = append(serverOpts, transport.WithAppKeyStore(c.appKeyStore, "X-Butter-App-Key", c.appKeyRequire))
+	}
+
+	srv := transport.NewServer(&cfg.Server, engine, logger, chain, serverOpts...)
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	return ts

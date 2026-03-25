@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/temikus/butter/internal/appkey"
 	"github.com/temikus/butter/internal/config"
 	"github.com/temikus/butter/internal/plugin"
 	"github.com/temikus/butter/internal/provider"
@@ -23,6 +24,9 @@ type Server struct {
 	logger         *slog.Logger
 	chain          *plugin.Chain
 	metricsHandler http.Handler
+	appKeyStore    *appkey.Store
+	appKeyHeader   string
+	appKeyRequire  bool
 }
 
 // Option configures optional Server behavior.
@@ -32,6 +36,17 @@ type Option func(*Server)
 func WithMetricsHandler(h http.Handler) Option {
 	return func(s *Server) {
 		s.metricsHandler = h
+	}
+}
+
+// WithAppKeyStore enables application-key tracking with the given store.
+// header is the request header name to read the key from.
+// requireKey causes requests without a valid key to receive 400 Bad Request.
+func WithAppKeyStore(store *appkey.Store, header string, requireKey bool) Option {
+	return func(s *Server) {
+		s.appKeyStore = store
+		s.appKeyHeader = header
+		s.appKeyRequire = requireKey
 	}
 }
 
@@ -47,11 +62,22 @@ func NewServer(cfg *config.ServerConfig, engine *proxy.Engine, logger *slog.Logg
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1/chat/completions", s.handleChatCompletions)
+	// Chat completions: optionally wrapped with app-key tracking middleware.
+	var chatHandler http.Handler = http.HandlerFunc(s.handleChatCompletions)
+	if s.appKeyStore != nil {
+		chatHandler = s.withAppKeyTracking(chatHandler)
+	}
+	mux.Handle("POST /v1/chat/completions", chatHandler)
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("/native/{provider}/{path...}", s.handleNativePassthrough)
 	if s.metricsHandler != nil {
 		mux.Handle("GET /metrics", s.metricsHandler)
+	}
+	if s.appKeyStore != nil {
+		mux.HandleFunc("POST /v1/app-keys", s.handleAppKeyCreate)
+		mux.HandleFunc("GET /v1/app-keys", s.handleAppKeyList)
+		mux.HandleFunc("GET /v1/app-keys/{key}/usage", s.handleAppKeyUsage)
+		mux.HandleFunc("GET /v1/usage", s.handleUsageAggregate)
 	}
 
 	s.httpServer = &http.Server{
@@ -87,6 +113,29 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 			"path", r.URL.Path,
 			"duration", time.Since(start),
 		)
+	})
+}
+
+// withAppKeyTracking extracts and validates the application key header,
+// rejects requests when require_key is set and the key is absent,
+// and injects the key into the request context.
+func (s *Server) withAppKeyTracking(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := r.Header.Get(s.appKeyHeader)
+		if key == "" {
+			if s.appKeyRequire {
+				s.writeError(w, http.StatusBadRequest, "missing required app key header: "+s.appKeyHeader)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !appkey.IsValid(key) {
+			s.writeError(w, http.StatusBadRequest, "invalid app key format")
+			return
+		}
+		r = r.WithContext(appkey.WithKey(r.Context(), key))
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -147,6 +196,19 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.emitTrace(pctx, r, resp.StatusCode, false, nil)
+
+	// Async usage tracking — never blocks the response path.
+	if s.appKeyStore != nil {
+		if key, ok := appkey.FromContext(r.Context()); ok {
+			model := pctx.Model
+			rawBody := resp.RawBody
+			store := s.appKeyStore
+			go func() {
+				pt, ct := appkey.ExtractUsage(rawBody)
+				store.RecordRequest(key, model, false, pt, ct)
+			}()
+		}
+	}
 
 	// Relay provider response headers, skipping headers that must be
 	// recalculated by the HTTP server (Content-Length, Transfer-Encoding)
@@ -218,6 +280,15 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request, body []byt
 	}
 
 	s.emitTrace(pctx, r, http.StatusOK, true, streamErr)
+
+	// Async usage tracking for streaming requests (token counts not extracted).
+	if s.appKeyStore != nil {
+		if key, ok := appkey.FromContext(r.Context()); ok {
+			model := pctx.Model
+			store := s.appKeyStore
+			go store.RecordRequest(key, model, true, 0, 0)
+		}
+	}
 }
 
 func (s *Server) handleNativePassthrough(w http.ResponseWriter, r *http.Request) {

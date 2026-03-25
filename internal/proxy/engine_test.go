@@ -350,8 +350,9 @@ func TestSelectKeyWeighted(t *testing.T) {
 
 	counts := map[string]int{}
 	const iterations = 10000
+	st := engine.st.Load()
 	for i := 0; i < iterations; i++ {
-		key := engine.selectKey("test-provider", "any-model")
+		key := engine.selectKey(st, "test-provider", "any-model")
 		counts[key]++
 	}
 
@@ -360,6 +361,37 @@ func TestSelectKeyWeighted(t *testing.T) {
 	if math.Abs(heavyRatio-0.8) > 0.05 {
 		t.Errorf("expected sk-heavy ratio ~0.80, got %.2f (heavy=%d, light=%d)",
 			heavyRatio, counts["sk-heavy"], counts["sk-light"])
+	}
+}
+
+func TestEngineReload(t *testing.T) {
+	mock := &mockProvider{
+		name: "openrouter",
+		response: &provider.ChatResponse{
+			RawBody:    []byte(`{"id":"test"}`),
+			StatusCode: 200,
+		},
+	}
+	engine := newTestEngine(mock)
+
+	// Initial key.
+	key := engine.selectKey(engine.st.Load(), "openrouter", "")
+	if key != "sk-test" {
+		t.Fatalf("expected sk-test, got %q", key)
+	}
+
+	// Reload with a different key.
+	newCfg := &config.Config{
+		Providers: map[string]config.ProviderConfig{
+			"openrouter": {Keys: []config.KeyConfig{{Key: "sk-new", Weight: 1}}},
+		},
+		Routing: config.RoutingConfig{DefaultProvider: "openrouter"},
+	}
+	engine.Reload(newCfg)
+
+	key = engine.selectKey(engine.st.Load(), "openrouter", "")
+	if key != "sk-new" {
+		t.Fatalf("expected sk-new after reload, got %q", key)
 	}
 }
 
@@ -380,10 +412,12 @@ func TestSelectKeyModelFilter(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	engine := NewEngine(reg, cfg, logger, nil)
 
+	st := engine.st.Load()
+
 	// For gpt-4o, both keys are eligible.
 	gpt4Keys := map[string]bool{}
 	for i := 0; i < 100; i++ {
-		gpt4Keys[engine.selectKey("test-provider", "gpt-4o")] = true
+		gpt4Keys[engine.selectKey(st, "test-provider", "gpt-4o")] = true
 	}
 	if !gpt4Keys["sk-gpt4-only"] || !gpt4Keys["sk-general"] {
 		t.Errorf("expected both keys for gpt-4o, got: %v", gpt4Keys)
@@ -391,7 +425,7 @@ func TestSelectKeyModelFilter(t *testing.T) {
 
 	// For claude-3, only sk-general is eligible (sk-gpt4-only has Models filter).
 	for i := 0; i < 100; i++ {
-		key := engine.selectKey("test-provider", "claude-3")
+		key := engine.selectKey(st, "test-provider", "claude-3")
 		if key != "sk-general" {
 			t.Fatalf("expected sk-general for claude-3, got %s", key)
 		}

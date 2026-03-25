@@ -270,21 +270,28 @@ func (s *Server) handleNativePassthrough(w http.ResponseWriter, r *http.Request)
 }
 
 // emitTrace sends a RequestTrace to observability plugins via the chain.
+// pctx.Metadata is merged into the trace so that plugins can carry state
+// (e.g. an OTel span stashed in PreHTTP) through to OnTrace.
+// Built-in keys ("method", "path", "streaming") take precedence.
 func (s *Server) emitTrace(pctx *plugin.RequestContext, r *http.Request, status int, streaming bool, err error) {
 	if s.chain == nil {
 		return
 	}
+	meta := make(map[string]any, len(pctx.Metadata)+3)
+	for k, v := range pctx.Metadata {
+		meta[k] = v
+	}
+	meta["method"] = r.Method
+	meta["path"] = r.URL.Path
+	meta["streaming"] = streaming
+
 	trace := &plugin.RequestTrace{
 		Provider:   pctx.Provider,
 		Model:      pctx.Model,
 		StatusCode: status,
 		Duration:   time.Since(pctx.StartTime),
 		Error:      err,
-		Metadata: map[string]any{
-			"method":    r.Method,
-			"path":      r.URL.Path,
-			"streaming": streaming,
-		},
+		Metadata:   meta,
 	}
 	s.chain.EmitTrace(trace)
 }

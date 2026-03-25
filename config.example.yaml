@@ -62,3 +62,7 @@ plugins:
     log_bodies: false        # log request/response bodies (truncated)
     body_max_bytes: 1024     # max body bytes to log
   metrics: {}                # Prometheus metrics at GET /metrics (OTel-based)
+  # tracing:                 # Distributed tracing via OpenTelemetry (OTLP HTTP)
+  #   endpoint: localhost:4318    # OTLP HTTP endpoint; omit to disable
+  #   service_name: butter
+  #   insecure: true              # set false for TLS

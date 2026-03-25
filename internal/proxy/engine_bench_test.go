@@ -85,11 +85,12 @@ func BenchmarkDispatchStream(b *testing.B) {
 
 func BenchmarkParseAndRoute(b *testing.B) {
 	engine := newBenchEngine()
+	st := engine.st.Load()
 
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, _, err := engine.parseAndRoute(benchBody)
+		_, _, err := engine.parseAndRoute(st, benchBody)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -113,10 +114,11 @@ func BenchmarkSelectKeyWeighted(b *testing.B) {
 
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	engine := NewEngine(reg, cfg, logger, nil)
+	st := engine.st.Load()
 
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		engine.selectKey("bench-provider", "any-model")
+		engine.selectKey(st, "bench-provider", "any-model")
 	}
 }

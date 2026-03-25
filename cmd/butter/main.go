@@ -17,6 +17,7 @@ import (
 	"github.com/temikus/butter/internal/plugin/builtin/metrics"
 	"github.com/temikus/butter/internal/plugin/builtin/ratelimit"
 	"github.com/temikus/butter/internal/plugin/builtin/requestlog"
+	"github.com/temikus/butter/internal/plugin/builtin/tracing"
 	"github.com/temikus/butter/internal/version"
 	"github.com/temikus/butter/internal/provider"
 	"github.com/temikus/butter/internal/provider/anthropic"
@@ -91,6 +92,10 @@ func main() {
 		pluginMgr.Register(metricsPlugin)
 	}
 
+	if _, ok := cfg.Plugins["tracing"]; ok {
+		pluginMgr.Register(tracing.New())
+	}
+
 	if err := pluginMgr.InitAll(cfg.Plugins); err != nil {
 		logger.Error("failed to initialize plugins", "error", err)
 		os.Exit(1)
@@ -117,6 +122,12 @@ func main() {
 
 	server := transport.NewServer(&cfg.Server, engine, logger, pluginChain, serverOpts...)
 
+	// Config hot-reload: poll for file changes and reload routing/keys atomically.
+	watcher := config.NewWatcher(*configPath, 5*time.Second, logger, func(newCfg *config.Config) {
+		engine.Reload(newCfg)
+	})
+	watcher.Start()
+
 	// Graceful shutdown.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -130,6 +141,7 @@ func main() {
 
 	<-ctx.Done()
 	logger.Info("shutting down...")
+	watcher.Stop()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

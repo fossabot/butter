@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/temikus/butter/internal/cache"
@@ -17,12 +18,27 @@ import (
 	"github.com/temikus/butter/internal/provider"
 )
 
+// engineState holds the hot-reloadable portions of Engine configuration.
+// The entire struct is replaced atomically on Reload so in-flight requests
+// always see a consistent snapshot.
+type engineState struct {
+	cfg  *config.Config
+	keys map[string][]config.KeyConfig // provider name -> ordered key list
+}
+
+func newEngineState(cfg *config.Config) *engineState {
+	keys := make(map[string][]config.KeyConfig, len(cfg.Providers))
+	for name, p := range cfg.Providers {
+		keys[name] = p.Keys
+	}
+	return &engineState{cfg: cfg, keys: keys}
+}
+
 // Engine is the core proxy dispatcher. It resolves which provider to use,
 // selects an API key, and dispatches the request.
 type Engine struct {
 	registry *provider.Registry
-	config   *config.Config
-	keys     map[string][]config.KeyConfig // provider name -> keys
+	st       atomic.Pointer[engineState] // replaced atomically on Reload
 	logger   *slog.Logger
 	chain    *plugin.Chain // nil means no plugins
 	cache    cache.Cache   // nil means caching disabled
@@ -32,18 +48,20 @@ type Engine struct {
 }
 
 func NewEngine(reg *provider.Registry, cfg *config.Config, logger *slog.Logger, chain *plugin.Chain) *Engine {
-	keys := make(map[string][]config.KeyConfig)
-	for name, p := range cfg.Providers {
-		keys[name] = p.Keys
-	}
-	return &Engine{
+	e := &Engine{
 		registry: reg,
-		config:   cfg,
-		keys:     keys,
 		logger:   logger,
 		chain:    chain,
 		sleepFn:  time.Sleep,
 	}
+	e.st.Store(newEngineState(cfg))
+	return e
+}
+
+// Reload atomically replaces routing config and key assignments.
+// Safe to call while requests are in flight.
+func (e *Engine) Reload(cfg *config.Config) {
+	e.st.Store(newEngineState(cfg))
 }
 
 // SetCache enables response caching with the given cache implementation and TTL.
@@ -54,7 +72,8 @@ func (e *Engine) SetCache(c cache.Cache, ttl time.Duration) {
 
 // Dispatch handles a non-streaming chat completion request.
 func (e *Engine) Dispatch(ctx context.Context, rawBody []byte) (*provider.ChatResponse, error) {
-	req, providerNames, err := e.parseAndRoute(rawBody)
+	st := e.st.Load()
+	req, providerNames, err := e.parseAndRoute(st, rawBody)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +119,7 @@ func (e *Engine) Dispatch(ctx context.Context, rawBody []byte) (*provider.ChatRe
 		}
 	}
 
-	failover := e.config.Routing.Failover
+	failover := st.cfg.Routing.Failover
 
 	var lastErr error
 	for _, providerName := range providerNames {
@@ -117,10 +136,10 @@ func (e *Engine) Dispatch(ctx context.Context, rawBody []byte) (*provider.ChatRe
 
 		for attempt := 0; attempt < maxAttempts; attempt++ {
 			if attempt > 0 {
-				e.backoff(attempt - 1)
+				e.backoff(st, attempt-1)
 			}
 
-			req.APIKey = e.selectKey(providerName, req.Model)
+			req.APIKey = e.selectKey(st, providerName, req.Model)
 			req.RawBody = rawBody
 
 			e.logger.Info("dispatching request",
@@ -163,7 +182,7 @@ func (e *Engine) Dispatch(ctx context.Context, rawBody []byte) (*provider.ChatRe
 			}
 
 			var pe *provider.ProviderError
-			if errors.As(err, &pe) && e.isRetryable(pe.StatusCode) {
+			if errors.As(err, &pe) && e.isRetryable(st, pe.StatusCode) {
 				continue // retry same provider
 			}
 			break // non-retryable, try next provider
@@ -175,7 +194,8 @@ func (e *Engine) Dispatch(ctx context.Context, rawBody []byte) (*provider.ChatRe
 
 // DispatchStream handles a streaming chat completion request.
 func (e *Engine) DispatchStream(ctx context.Context, rawBody []byte) (provider.Stream, error) {
-	req, providerNames, err := e.parseAndRoute(rawBody)
+	st := e.st.Load()
+	req, providerNames, err := e.parseAndRoute(st, rawBody)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +220,7 @@ func (e *Engine) DispatchStream(ctx context.Context, rawBody []byte) (provider.S
 		req.Model = pctx.Model
 	}
 
-	failover := e.config.Routing.Failover
+	failover := st.cfg.Routing.Failover
 
 	var lastErr error
 	for _, providerName := range providerNames {
@@ -217,10 +237,10 @@ func (e *Engine) DispatchStream(ctx context.Context, rawBody []byte) (provider.S
 
 		for attempt := 0; attempt < maxAttempts; attempt++ {
 			if attempt > 0 {
-				e.backoff(attempt - 1)
+				e.backoff(st, attempt-1)
 			}
 
-			req.APIKey = e.selectKey(providerName, req.Model)
+			req.APIKey = e.selectKey(st, providerName, req.Model)
 			req.RawBody = rawBody
 
 			e.logger.Info("dispatching stream request",
@@ -246,7 +266,7 @@ func (e *Engine) DispatchStream(ctx context.Context, rawBody []byte) (provider.S
 			}
 
 			var pe *provider.ProviderError
-			if errors.As(err, &pe) && e.isRetryable(pe.StatusCode) {
+			if errors.As(err, &pe) && e.isRetryable(st, pe.StatusCode) {
 				continue // retry same provider
 			}
 			break // non-retryable, try next provider
@@ -259,7 +279,7 @@ func (e *Engine) DispatchStream(ctx context.Context, rawBody []byte) (provider.S
 // parseAndRoute extracts the model from the request body and determines
 // which provider(s) should handle it. Returns an ordered list of providers
 // to try (for failover).
-func (e *Engine) parseAndRoute(rawBody []byte) (*provider.ChatRequest, []string, error) {
+func (e *Engine) parseAndRoute(st *engineState, rawBody []byte) (*provider.ChatRequest, []string, error) {
 	// Minimal parse — only extract fields needed for routing.
 	var partial struct {
 		Model    string `json:"model"`
@@ -279,11 +299,11 @@ func (e *Engine) parseAndRoute(rawBody []byte) (*provider.ChatRequest, []string,
 	if partial.Provider != "" {
 		// Explicit override — single provider, no failover chain.
 		providerNames = []string{partial.Provider}
-	} else if route, ok := e.config.Routing.Models[partial.Model]; ok && len(route.Providers) > 0 {
+	} else if route, ok := st.cfg.Routing.Models[partial.Model]; ok && len(route.Providers) > 0 {
 		// Model route — full provider list for failover.
 		providerNames = route.Providers
-	} else if e.config.Routing.DefaultProvider != "" {
-		providerNames = []string{e.config.Routing.DefaultProvider}
+	} else if st.cfg.Routing.DefaultProvider != "" {
+		providerNames = []string{st.cfg.Routing.DefaultProvider}
 	}
 
 	if len(providerNames) == 0 {
@@ -301,8 +321,8 @@ func (e *Engine) parseAndRoute(rawBody []byte) (*provider.ChatRequest, []string,
 
 // selectKey picks an API key for the given provider using weighted random selection.
 // Keys with a Models allowlist are skipped if the requested model isn't in the list.
-func (e *Engine) selectKey(providerName, model string) string {
-	keys := e.keys[providerName]
+func (e *Engine) selectKey(st *engineState, providerName, model string) string {
+	keys := st.keys[providerName]
 	if len(keys) == 0 {
 		return ""
 	}
@@ -339,8 +359,8 @@ func (e *Engine) selectKey(providerName, model string) string {
 }
 
 // isRetryable checks if a status code is in the configured retry_on list.
-func (e *Engine) isRetryable(statusCode int) bool {
-	for _, code := range e.config.Routing.Failover.RetryOn {
+func (e *Engine) isRetryable(st *engineState, statusCode int) bool {
+	for _, code := range st.cfg.Routing.Failover.RetryOn {
 		if code == statusCode {
 			return true
 		}
@@ -349,8 +369,8 @@ func (e *Engine) isRetryable(statusCode int) bool {
 }
 
 // backoff sleeps for the computed backoff duration: min(initial * multiplier^attempt, max).
-func (e *Engine) backoff(attempt int) {
-	bo := e.config.Routing.Failover.Backoff
+func (e *Engine) backoff(st *engineState, attempt int) {
+	bo := st.cfg.Routing.Failover.Backoff
 	delay := time.Duration(float64(bo.Initial) * pow(bo.Multiplier, attempt))
 	if delay > bo.Max {
 		delay = bo.Max
@@ -370,6 +390,7 @@ func pow(base float64, exp int) float64 {
 // DispatchPassthrough forwards a raw HTTP request to the named provider.
 // It selects an API key and delegates to the provider's Passthrough method.
 func (e *Engine) DispatchPassthrough(ctx context.Context, providerName, method, path string, body io.Reader, headers http.Header) (*http.Response, error) {
+	st := e.st.Load()
 	p, err := e.registry.Get(providerName)
 	if err != nil {
 		return nil, err
@@ -380,7 +401,7 @@ func (e *Engine) DispatchPassthrough(ctx context.Context, providerName, method, 
 	}
 
 	// Select a key (model-agnostic for passthrough).
-	apiKey := e.selectKey(providerName, "")
+	apiKey := e.selectKey(st, providerName, "")
 	if apiKey != "" {
 		headers = headers.Clone()
 		if setter, ok := p.(provider.AuthHeaderSetter); ok {

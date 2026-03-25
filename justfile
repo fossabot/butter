@@ -90,6 +90,13 @@ docker-run tag="latest" config="config.yaml":
 bench:
     go test ./... -bench=. -benchmem
 
-# Remove built binary
+# Build example WASM plugin (requires TinyGo)
+build-example-wasm:
+    tinygo build -o plugins/example-wasm/example-wasm.wasm \
+      -scheduler=none -target=wasi \
+      ./plugins/example-wasm/
+
+# Remove built binary and compiled WASM plugins
 clean:
     rm -rf pkg/
+    rm -f plugins/example-wasm/example-wasm.wasm

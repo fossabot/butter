@@ -11,11 +11,23 @@ import (
 )
 
 type Config struct {
-	Server    ServerConfig                `yaml:"server"`
-	Providers map[string]ProviderConfig   `yaml:"providers"`
-	Routing   RoutingConfig               `yaml:"routing"`
-	Plugins   map[string]map[string]any   `yaml:"plugins,omitempty"`
-	Cache     CacheConfig                 `yaml:"cache"`
+	Server      ServerConfig              `yaml:"server"`
+	Providers   map[string]ProviderConfig `yaml:"providers"`
+	Routing     RoutingConfig             `yaml:"routing"`
+	Plugins     map[string]map[string]any `yaml:"plugins,omitempty"`
+	WASMPlugins []WASMPluginConfig        `yaml:"wasm_plugins,omitempty"`
+	Cache       CacheConfig               `yaml:"cache"`
+}
+
+// WASMPluginConfig holds the configuration for a single WASM plugin.
+type WASMPluginConfig struct {
+	// Name is the unique identifier for this plugin instance (used in logs).
+	Name string `yaml:"name"`
+	// Path is the filesystem path to the compiled .wasm file.
+	Path string `yaml:"path"`
+	// Config is forwarded to the WASM plugin via the Extism manifest config.
+	// Values are accessible inside the plugin via the Extism PDK config API.
+	Config map[string]string `yaml:"config,omitempty"`
 }
 
 type CacheConfig struct {

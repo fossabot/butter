@@ -18,6 +18,7 @@ import (
 	"github.com/temikus/butter/internal/plugin/builtin/ratelimit"
 	"github.com/temikus/butter/internal/plugin/builtin/requestlog"
 	"github.com/temikus/butter/internal/plugin/builtin/tracing"
+	pluginwasm "github.com/temikus/butter/internal/plugin/wasm"
 	"github.com/temikus/butter/internal/version"
 	"github.com/temikus/butter/internal/provider"
 	"github.com/temikus/butter/internal/provider/anthropic"
@@ -94,6 +95,22 @@ func main() {
 
 	if _, ok := cfg.Plugins["tracing"]; ok {
 		pluginMgr.Register(tracing.New())
+	}
+
+	// Register WASM plugins in config order. Each plugin's user-supplied
+	// config is merged into cfg.Plugins so that InitAll can pass it through.
+	for _, wpc := range cfg.WASMPlugins {
+		wp := pluginwasm.New(wpc.Name, wpc.Path, logger)
+		pluginMgr.Register(wp)
+
+		wasmCfg := make(map[string]any, len(wpc.Config))
+		for k, v := range wpc.Config {
+			wasmCfg[k] = v
+		}
+		if cfg.Plugins == nil {
+			cfg.Plugins = make(map[string]map[string]any)
+		}
+		cfg.Plugins[wpc.Name] = wasmCfg
 	}
 
 	if err := pluginMgr.InitAll(cfg.Plugins); err != nil {

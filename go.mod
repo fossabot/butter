@@ -8,16 +8,22 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dylibso/observe-sdk/go v0.0.0-20240819160327-2d926c5d788a // indirect
+	github.com/extism/go-sdk v1.7.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
+	github.com/ianlancetaylor/demangle v0.0.0-20240805132620-81f5be970eca // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
+	github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834 // indirect
+	github.com/tetratelabs/wazero v1.9.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.42.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.42.0 // indirect

@@ -96,7 +96,17 @@ build-example-wasm:
       -scheduler=none -target=wasi \
       ./plugins/example-wasm/
 
+# Build prompt-injection-guard WASM plugin (requires TinyGo >= 0.34)
+build-injection-guard:
+    tinygo build -o plugins/prompt-injection-guard/prompt-injection-guard.wasm \
+      -scheduler=none -target=wasi \
+      ./plugins/prompt-injection-guard/
+
+# Build all WASM plugins
+build-wasm: build-example-wasm build-injection-guard
+
 # Remove built binary and compiled WASM plugins
 clean:
     rm -rf pkg/
     rm -f plugins/example-wasm/example-wasm.wasm
+    rm -f plugins/prompt-injection-guard/prompt-injection-guard.wasm

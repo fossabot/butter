@@ -16,6 +16,8 @@ just bench                            # Run benchmarks with allocation reporting
 just release-snapshot                 # Test GoReleaser locally (no publish)
 just test-one ./internal/proxy/ TestDispatch  # Run a single test
 just build-example-wasm               # Compile example WASM plugin (requires TinyGo ≥ 0.34)
+just build-injection-guard            # Compile prompt injection guard WASM plugin
+just build-wasm                       # Build all WASM plugins
 ```
 
 ## Architecture
@@ -42,6 +44,7 @@ Client → transport.Server (HTTP) → proxy.Engine (routing/dispatch) → provi
 - `internal/plugin/wasm/` — WASM plugin host built on Extism/wazero (pure Go, BSD-3/Apache-2.0). Uses `CompiledPlugin` (compile-once at startup) + per-call `Instance()` for safe concurrent use. Missing hooks silently skipped. `StreamChunk` is pass-through (per-chunk instantiation cost is prohibitive).
 - `plugin/sdk/` — Public JSON ABI types (`Request`/`Response`) for external WASM plugin authors. Stdlib-only so it compiles with TinyGo.
 - `plugins/example-wasm/` — Example TinyGo plugin demonstrating `pre_http`. Build with `just build-example-wasm`.
+- `plugins/prompt-injection-guard/` — Prompt injection detection WASM plugin. Scans chat messages for ~60 injection patterns across 7 categories with Unicode bypass detection. Supports block/log/tag modes. Build with `just build-injection-guard`.
 
 **Endpoints:** `POST /v1/chat/completions`, `GET /healthz`, `GET /metrics` (when metrics plugin enabled), `/native/{provider}/*` (raw passthrough). When `app_keys.enabled: true`: `POST /v1/app-keys` (vend key), `GET /v1/app-keys` (list keys), `GET /v1/app-keys/{key}/usage` (per-key stats), `GET /v1/usage` (aggregate stats).
 

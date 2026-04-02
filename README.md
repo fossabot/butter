@@ -32,6 +32,7 @@ Your App ──▶ Butter ──▶ OpenAI / Anthropic / Groq / Mistral / ...
 - Weighted random key selection with per-key model allowlists
 - Multi-provider failover with configurable retry-on status codes and exponential backoff
 - **WASM plugin sandbox** via [Extism](https://extism.org/)/wazero — load external `.wasm` plugins with zero CGo, full sandbox isolation
+- **Prompt injection guard** WASM plugin — scans requests for ~60 injection patterns across 7 categories (instruction override, jailbreak, prompt extraction, etc.) with Unicode bypass detection; block, log, or tag modes
 - Plugin system with ordered hook chains (`pre_http`, `post_http`, `pre_llm`, `post_llm`, stream chunks, observability traces)
 - Plugin short-circuit support (plugins can reject or rewrite requests before they reach the provider)
 - Built-in rate limiter plugin (token bucket, global or per-IP, configurable RPM)
@@ -237,6 +238,8 @@ just check              # Run vet + lint + test
 just bench              # Run benchmarks with allocation reporting
 just release-snapshot   # Test GoReleaser locally (no publish)
 just build-example-wasm # Compile example WASM plugin (requires TinyGo)
+just build-injection-guard # Compile prompt injection guard plugin (requires TinyGo)
+just build-wasm         # Build all WASM plugins
 ```
 
 Or use Go directly:
@@ -278,7 +281,9 @@ butter/
 │       ├── fireworks/           Fireworks provider
 │       └── perplexity/          Perplexity provider
 ├── plugin/sdk/                  Public JSON ABI types for WASM plugin authors
-├── plugins/example-wasm/        Example WASM plugin (TinyGo, pre_http hook)
+├── plugins/
+│   ├── example-wasm/            Example WASM plugin (TinyGo, pre_http hook)
+│   └── prompt-injection-guard/  Prompt injection detection WASM plugin
 ├── tests/integration/           Integration tests with mock provider servers
 ├── config.example.yaml
 ├── Dockerfile                   Multi-stage distroless image
